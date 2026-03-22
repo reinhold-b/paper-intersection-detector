@@ -1,0 +1,63 @@
+- Einleitung
+	- Problemstellung: Erkennung von Kreuzungen in Kamerabildern
+	- Ziel der Arbeit und Beitrag des Moduls
+	- Abgrenzung (regelbasierte Bildverarbeitung, kein Deep Learning)
+
+- Technischer Kontext
+	- Einordnung in ROS2-System
+	- Eingangs- und Ausgangsschnittstellen (Image-Topic, Ergebnis-Topic, Debug-Topic)
+	- Laufzeitumgebung und Abhängigkeiten (OpenCV, cv_bridge, rclpy)
+
+- Modulübersicht
+	- Rolle der Klasse IntersectionDetector
+	- Vererbungsansatz über SmartyNode
+	- Parameterkonzept (z. B. debug, image_path, example_value)
+
+- Architektur und Datenfluss
+	- Initialisierung des Nodes (Publisher, Subscriber, Parameter)
+	- Ablauf vom Empfang eines Bildes bis zur Ausgabe
+	- Unterschied Callback-Betrieb vs. Schleifenbetrieb in main()
+
+- Bildverarbeitungs-Pipeline
+	- Vorverarbeitung und Laden von Bildern
+	- Kantendetektion mit Canny (perform_canny())
+	- Linienerkennung mit probabilistischem Hough (hough_transformation())
+	- Winkelfilterung zur Selektion relevanter Linien (filter_by_angle())
+	- Visualisierung der Ergebnisse (_show_lines(), show_image())
+
+- ROS2-Integration
+	- Subscription-Logik (image_callback())
+	- Verarbeitungseinheit (execute_prediction())
+	- Publikation von Ergebnis- und Debugdaten
+	- Zustands- und Parametermanagement
+
+- Performance und Messbarkeit
+	- Zeitmessung mit timer.Timer
+	- Relevante Laufzeitabschnitte (Transport, Verarbeitung, Publikation, Debug)
+	- Diskussion Echtzeitfähigkeit
+
+- Validierung und Tests
+	- Funktionale Tests mit Beispielbildern
+	- Qualitätskriterien (Stabilität, Robustheit bei Rauschen/Licht)
+	- Grenzfälle (schwache Kanten, schiefe Perspektiven, Teilverdeckungen)
+
+- Kritische Analyse
+	- Stärken des aktuellen Ansatzes (einfach, nachvollziehbar, schnell)
+	- Schwächen (feste Schwellwerte, begrenzte Generalisierung)
+	- Technische Risiken im produktiven Einsatz
+
+- Verbesserungspotenzial
+	- Adaptive Parameter statt fixer Schwellen
+	- Perspektivkorrektur/ROI-Strategien
+	- Kombination mit klassifikationsbasierten Verfahren
+	- Erweiterung um robuste Kreuzungstyp-Erkennung
+
+- Fazit und Ausblick
+	- Zusammenfassung der Ergebnisse
+	- Bewertung der Zielerreichung
+	- Nächste Entwicklungsschritte im Projekt
+
+- Anhang
+	- Parameterübersicht
+	- Topic-Übersicht
+	- Reproduzierbare Ausführungs- und Testschritte
