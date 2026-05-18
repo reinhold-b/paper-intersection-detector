@@ -3,7 +3,6 @@
 #import "@preview/fletcher:0.5.8": diagram, node, edge, shapes
 #import "@preview/zebraw:0.6.1": zebraw
 #import "@preview/lovelace:0.3.0": *
-#import "@preview/akatable:0.1.0": academic-table
 #import "@preview/pavemat:0.2.0": pavemat
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/cetz-plot:0.1.3": *
@@ -69,8 +68,6 @@
   // for more options check the package documentation (https://typst.app/universe/package/clean-dhbw)
 )
 
-// Edit this content to your liking
-
 = Packages to use
 - fletcher
 - lovelace
@@ -125,7 +122,98 @@ Die zu erkennenden Kreuzungen sind standardisiert und sehen innerhalb der Streck
 Um aus einem Rohbild aus der `camera_preprocessing` Node Informationen zu gewinnen, wird das Rohbild innerhalb einer Pipeline verarbeitet. Innerhalb der Pipeline sind mehrere Designentscheidungen zu treffen, um ein bestmögliches Ergebnis zu erzielen.
 Der Entwicklungsprozess wird in Iterationen durchgeführt, nach der jeder das Ergebnis der Pipeline evaluiert und getestet wird. 
 == Bildvorverarbeitung
-TODO mit blurring und dem ganzen spaß
+Das Rohbild der `camera_preprocessing` Node entspringt einer Kamera, die auf einem Gestell hinten am Fahrzeug angebracht ist. Dieses liefert ein schwarz-weiß Bild, welches dieses Modul nutzt, um Kreuzungen zu klassifizieren.
+
+Es stellt sich während der Entwicklung heraus, dass es von Vorteil ist, das Bild in einigen Schritten zu verarbeiten, bevor es von der Systempipeline verarbeitet wird.
+
+=== Bildperspektive
+Bevor die allgemeine Vorverarbeitungspipeline erklärt wird, muss entschieden werden, ob für das Modul eine Frontalansicht der Kamera oder die Vogelperspektive gewählt wird, die eine perspektivische Verzerrung der Frontalansicht ist. TODO: Bilder einfügen
+Allgemein haben sowohl die Frontalansicht, als auch die Vogelperspektive (auch `BEV` für `Birds Eye View`) Vorteile und Nachteile, die im Folgenden aufgeführt werden. Diese gehen auch Tests während der Entwicklung hervor.
+
+#table(
+  columns: 3,
+  [*Kriterium*], [*Frontalansicht*], [*Vogelperspektive (BEV)*],
+  [Linienerkennung], [Gut - Linien sind deutlich sichtbar, vertikale Linien sind aber stets geneigt], [Sehr gut - Linien sind orthogonal],
+  [Perspektivische Verzerrung], [Ja - Objekte verzerrt], [Nein - Orthogonale Abbildung],
+  [Schärfe], [Gesamtheitlich scharfes Bild], [Oberer Bereich verzerrt],
+  [Rechenaufwand], [Niedrig], [Höher (Transformation notwendig)],
+  [Abstand zu Objekten], [Erschwert], [Direkt messbar],
+  [Sichtfeld], [Sehr groß, vor allem aber in Weitsicht], [Geringer, aber auf Nahbereich fokussiert]
+)
+
+Während der Entwicklung müssen nun diese Kriterien betrachtet und abgewogen werden. Für den vorliegenden Anwendungsfall sind vor allem folgende Kriterien relevant:
++ Perspektivische Verzerrung
++ Schärfe
++ Sichtfeld
+
+Während der Entwicklung hat es sich als Schwierigkeit herausgestellt, dass die Frontalansicht einen weiten Blick über die Straße hat. Zwar könnte es von Vorteil sein, um die Kreuzung früher zu erkennen, aber tatsächlich ist der Großteil der Weite, die die Frontalansicht liefert, für die Kreuzungserkennung von keiner Relevanz. Negativ ins Gewicht fällt dabei auch, dass der Kreuzungsbereich im vorderen Bildbereich stark gestaucht ist und dadurch alle Haltelinien sowie der gesamte Kreuzungsbereich in einem kleinen Bereich der ROI zusammenkommen.
+
+Außerdem ist die perspektivische Verzerrung der Frontalansicht ein Nachteil bei der Erkennung von Haltelinien, da Linien nicht mehr orthogonal im Bild erscheinen, sondern in Richtung eines Fluchtpunktes. Das ist vor allem für Winkelberechnungen unvorteilhaft.
+
+Ein Nachteil der Vogelperspektive ist die Unschärfe im oberen Teil des Bildes, die durch die Transformation zustandekommt. Dadurch kann es schwer sein, Linien zu erkennen, da diese stark verzerrt sind. Das ist aber durch eine Vorverarbeitungspipeline zu beheben, weswegen für das Modul die Vogelperspektive als Bildperspektive gewählt wird.
+
+TODO: Trafo in BEV erklären?
+
+=== Bildentzerrung
+Durch die Transformation in die Vogelperspektive sind in den oberen Bereichen des Rohbildes starke Verzerrungen, sodass die Linienerkennung die gegenüberliegende Haltelinie nicht erkennen kann.
+
+
+==== Gaussian Blur
+
+Ein Ansatz, um Verzerrungen im Bild zu bereinigen, ist es, den gesamten Bildbereich mit einem Filter zu verarbeiten. Dafür kommt beispielsweise die `Gaussche Unschärfe` in Betracht, die auf Basis einer Faltung dem gesamten Bild eine Unschärfe zufügt.
+
+Der Kernel für diese Faltung wird aufgrund folgender Vorschrift durchgeführt.
+
+#figure(
+caption: "Gaussian Blur Kernelvorschrift",
+$G(x,y) = frac(1, 2pi * sigma)e^(frac(x^2+y^2, 2sigma^2))$ 
+) <gauss-1>
+
+Aus dieser Vorschrift entsteht ein Kernel, der Pixel näher zur Mitte des Kernel stärker gewichtet als Pixel, die am Rand des Kernels liegen. Ein Beispielkernel `5x5` könnte wie folgt aussehen (siehe @gaussian-kernel-5x5).
+
+#figure(
+caption: "Beispiel Gaussian Kernel 5x5",
+$
+  mat(
+    0.0037, 0.0147, 0.0221, 0.0147, 0.0037;
+    0.0147, 0.0586, 0.0881, 0.0586, 0.0147;
+    0.0221, 0.0881, 0.1325, 0.0881, 0.0221;
+    0.0147, 0.0586, 0.0881, 0.0586, 0.0147;
+    0.0037, 0.0147, 0.0221, 0.0147, 0.0037;
+  )
+$
+) <gaussian-kernel-5x5>
+Das Bild wird nun mit diesem Kernel gefaltet. Hierbei ist der Wert jedes neuen Pixels im gefilterten Bild eine gewichtete Summe aus den Nachbarpixeln (in @gaussian-kernel-5x5 beispielsweise `5x5` Umgebung) @gauss-source (S. 393).
+
+Innerhalb des Moduls kann die in `OpenCV` vorhande Funktion `cv2.GaussianBlur(img, (5, 5))` verwendet werden.
+
+TODO HIER BILD EINFÜGEN AUS DER PIPELINE
+
+Der Gauss-Filter ist nützlich, um Rauschen aus dem Bild zu entfernen und damit auch verzerrte Stellen des Bildes weicher zu machen, sodass die Linienerkennung trotz Verzerrung durch die BEV gute Ergebnisse liefert. Ein Problem des Gauss-Filters ist aber, dass er sowohl Verzerrungen, als auch bereits klare Kanten weicher macht. Das führt zu schlechteren Ergebnissen bei bereits klaren Kanten.
+
+==== Bilateraler Filter
+Um den Schwächen des Gauss-Filters entgegenzuwirken, wird der bilaterale Filter in Betracht gezogen. Der Vorteil des bilateralen Filters ist es, dass er Verzerrungen aufweicht, während scharfe Kanten erhalten bleiben @bil-fil (S. 779). 
+
+Der bilaterale Filter nutzt dabei zwei Gaussche-Kernel, um den Wert des gefilterten Pixels zu berechnen. Ein Filter ist dabei ein räumlicher Filter, welcher ähnlich der `Gausschen Unschärfe` arbeitet. Er gewichtet nah gelegene Pixel stärker als weiter entfernte. Der Unterschied zum einfachen Gausschen-Filter ist aber, dass zusätzlich ein Intensitätskernel genutzt wird, welcher Pixel stark gewichtet, die ähnliche Intensität aufweisen und Pixel mit stark Gradienten in Intensität schwach gewichtet @bil-fil (S. 779f).
+
+Der bilaterale Filter weist im Vergleich zum Gauss-Filter aber höhere Rechenkosten auf, die aber mit Blick auf das Ergebnis akzeptabel sind @bil-fil (S. 779). Deswegen wird dieser Filter in der Pipeline genutzt.
+
+==== Median Blur
+
+Der Median-Blur arbeitet ähnlich zu den andern Filtern. Dabei wird aber kein Gauss-Kernel erzeugt, sondern alle Pixelwerte innerhalb der Kernelfläche in aufsteigender Reihenfolge sortiert und das mittlere Element (der Median) als neuer Wert des betrachteten Pixels gesetzt. Dies macht den Filter besonders effektiv bei der Reduktion von Salz- und Pfeffer-Rauschen (engl. `Salt-and-Pepper` Noise), da extreme Ausreißer durch den Median-Wert ersetzt werden.
+
+Auch der Median-Blur hat einen hohen Rechenaufwand, wird aber in Kombination mit dem bilateralen Filter genutzt, um zusätzlich `Salt-and-Pepper` Rauschen aus dem Bild zu entfernen. Auch dieses kann durch die Transformation in BEV erzeugt werden.
+
+TODO QUELLE UND BILDER, CODE EINFÜGEN
+
+=== Morphologisches Öffnen und Schließen
+
+
+=== Minimierung von Lichtverschmutzung
+
+
+
+
 == Kantenerkennung
 Ziel des ersten Entwicklungsinkrements ist das Extrahieren von Linien aus dem Rohbild. Dafür werden verschiedene Methodiken betrachtet, mit denen aus dem Rohbild eine Menge an Linien extrahiert werden kann, die dann in weiteren Schritten zum Bestimmen der Ego- und Opp-Haltelinien genutzt werden können.
 
@@ -859,7 +947,106 @@ Nachdem nun die algorithmische Basis der Klassifizierung der Linienart näher el
 
 == Heading der Straße 
 
-== Plausibilierung der Ego- und Opplinie
+Ein bisher beständiges Problem der Kreuzungserkennung ist die falsche oder ausgelassene Detektion von Haltelinien bei Anfahrt aus einer Kurve. Zusätzlich hängt die Ausrichtung der abgeleiteten Kreuzungsmitten (TODO ref) auch von der Orientierung der Straße ab und ändert sich deshalb bei Anfahrt aus Kurven.
+
+=== Gaussian Mixture Model mit Expectation Maximization
+Eine verwandte Methode zur Bestimmung der Straßenorientierung ist die Lenkwinkelberechnung für autonome Fahrzeuge. Ein vielversprechender Ansatz, der in der Literatur beschrieben wird, nutzt Computer Vision mit geringen Rechenkosten. Die Methode basiert auf drei Schritten: Zunächst wird die befahrbare Straßenregion mittels Gaussian Mixture Model (GMM) mit Expectation Maximization (EM) extrahiert, um robust mit Schatten und verschiedenen Lichtverhältnissen umzugehen. Daraufhin werden die Straßengrenzen durch Canny Edge Detection detektiert. Abschließend wird der Lenkwinkel aus dem Schnittpunkt der extrahierten Grenzen berechnet – also dem Punkt, in dem sich die extrapolierten Straßenkanten treffen. Der Winkel zwischen diesem Schnittpunkt und der Fahrtmitte ergibt dann die erforderliche Fahrtrichtung. Zur Rauschunterdrückung werden Kalman-Filter eingesetzt, um abrupte Lenkwinkeländerungen durch Fahrbahnunebenheiten oder Umgebungsrauschen zu glätten @gnnem.
+
+Dieser Ansatz ist interessant für die Kreuzungserkennung, da die Straßenorientierung direkt aus dem aktuellen Kamerabild ermittelt werden kann, ohne zusätzliche Sensoren wie LIDAR oder RADAR zu benötigen. Die Methode funktioniert auch auf unstrukturierten Straßen und unter verschiedenen Lichtverhältnissen, was für realistische Einsatzszenarien vorteilhaft ist @gnnem.
+
+Für den vorliegenden Anwendungsfall ist die Methodik nutzbar, erscheint aber aufgrund der bereits berechneten Liniensegmente in ihrem Umsetzungsaufwand zu groß.
+
+=== Deep Learning basierter Ansatz
+Neben dem zuvor vorgestelleten Computer Vision basierten Algorithmjs zur Berechnung des Heading Winkels gibt es auch zahlreiche Methodiken, die auf Basis von trainerten Modellen arbeiten. Beispielsweise können die Convolutional Neural Networks (CNN) sein @dlsteering. Dafür muss ein großer Datensatz akquiriert und annotiert werden, bevor ein neuronales Netz zu trainieren. Dieses kann dann auf Basis der Trainingsdaten den Heading Winkel auf Realdaten vorraussagen @dlsteering.
+
+Auch dieser Ansatz erscheint für den vorliegenden Anwendungsfall unpassend, da er eine Akquise eines annotierten Trainingsdatensatzes vorraussetzt. Außerdem ist ein Ansatz mit geringeren Rechenkosten möglich.
+
+=== Histogrammbasierter Ansatz
+Im Folgenden wird ein weiterer Ansatz erläutert, der auf der Berechnung des Heading Winkels über Histogramme aller erkannten Linien basiert.
+
+Dafür werden in einem ersten Schritt Linien nach ihrer Ausrichtung sortiert. Dabei werden nur Linien zur Berechnung des Winkels genutzt, die im Winkelbereich $45 degree <= alpha <= 135 degree$ liegen. 
+
+Nun wird aus den Winkeln aller validen Linien ein Array erstellt, welches zum erstellen eines Histogramms genutzt wird. Die Grundidee ist es, die dominante Ausrichtung der Linien im aktuellen Bild zu finden. Dafür wird folgender Code verwendet.
+
+#code-block(
+  caption: [Berechnung eines Histogramms über Winkel der Spurlinien],
+  ```python
+  valid_angles_arr = np.array(valid_angles)
+  bins, range = 18, (45, 135)
+  hist, bin_edges = np.histogram(valid_angles_arr, bins=bins, range=range)
+  peak_bin = int(np.argmax(hist))
+  prominent_angle = float((bin_edges[peak_bin] + bin_edges[peak_bin + 1]) / 2.0)
+  ```,
+  highlight-lines: (
+  )
+) <heading>
+TODO: CODE ÄNDERN IN DER REPO (WENIGER BINS UND ANDERE RANGE)
+
+In einem ersten Schritt wird ein Histogramm aus 18 Bins in einem Bereich von `(45, 135)` erstellt. Dadurch ist eine Auflösung von $frac(135 degree - 45 degree, 18) = 5 degree$ festgelegt. Diese ist grob gewählt, da durch die Fusion der Linien in der Vorverarbeitung eine relativ geringe Anzahl an Linien für die Histogrammbildung in Frage kommt. Es wird nach der Histogrammbildung die Bin mit den größten Anzahl an Elementen ausgewählt. Dies ist die dominante Ausrichtung aller vertikalen Linien im aktuellen Bild. Dadurch, dass der Bereich mit $[45; 135]$ festgelegt wird, kann der dominante Winkel folglich auch nur in diesem Bereich liegen. Das ist aber für den Anwendungsfall sinnvoll, da das Fahrzeug im Normalbetrieb mit einem Heading-Winkel fährt, der nicht außerhalb dieses Bereichs fällt. Wäre dies der Fall, würde eine Situation vorliegen, in der das Fahrzeug nicht korrekt auf der Straße platziert oder von dieser abgekommen ist. In diesem Fall wäre die Kreuzungserkennung deaktiviert.
+
+Zuletzt wird der Durchschnitt des Bins `peak` und des Bins `peak + 1` berechnet. Dies ist der Tatsache geschuldet, dass die Peakbin nur den unteren Rand des tatsächlichen Ergebnisses abbildet und die Bin `peak + 1` den oberen Rand. Der Durchschnitt dieser approximiert den tatsächlichen Winkel.
+
+=== Pipeline zur Headingwinkel Berechnung
+
+Aus der nun beschriebenen Methodik ergibt sich folgenden Pipeline, die innerhalb des Systems zur Approximierung des Heading Winkels verwendet wird (@pipeline-heading). Es wird der histogrammbasierte Ansatz gewählt, da dieser schnell implementiert werden konnte und zudem keine Vorbereitung eines annotierten Trainingsdatensatzes verlangt. Außerdem ist dieser Ansatz schnell und erfordert im Gegensatz zu den anderen vorgestellten Ansätzen wenig Rechenkosten.
+
+#let heading-pipeline = align(center)[#diagram(
+  spacing: 8pt,
+  cell-size: (10mm, 10mm),
+  edge-stroke: 1pt,
+  edge-corner-radius: 3pt,
+  mark-scale: 60%,
+  
+  node((0, 0), [Linien], width: 18mm, fill: rgb("#ff89f7").lighten(60%), stroke: 1pt + rgb("#ff89f7").darken(20%), shape: shapes.hexagon.with()),
+  edge((0, 0), (2, 0), "-|>"),
+  
+  node((2, 0), [Filter $[45 degree; 135 degree]$], width: 22mm, fill: rgb("#ffff59").lighten(60%), stroke: 1pt + rgb("#ffff59").darken(20%), corner-radius: 3pt),
+  edge((1, 0), (4, 0), "-|>"),
+  
+  node((4, 0), [Histogramm], width: 22mm, fill: rgb("#5990ff").lighten(60%), stroke: 1pt + rgb("#598bff").darken(20%), corner-radius: 3pt),
+  edge((2, 0), (6, 0), "-|>"),
+  
+  node((6, 0), [Headingwinkel], width: 30mm, fill: rgb("#50dd96").lighten(60%), stroke: 1pt + rgb("#50dd96").darken(20%), shape: shapes.hexagon.with()),
+)]
+
+#figure(
+  caption: [Pipeline für die Berechnung des Heading-Winkels],
+  heading-pipeline
+) <pipeline-heading>
+
+== Postprocessing der Ego- und Opplinie
+Nachdem das System die Egolinie und die Opplinie erkannt hat, werden diese nachverarbeitet und validiert. Dadurch können Ergebnisse verbessert und Fehldetektionen minimiert werden.
+
+Die folgenden Schritte werden sowohl für eine erkannte Egolinie als auch für eine erkannte Opplinie durchgeführt. Die Parameter der einzelnen Funktionen unterscheiden sich jedoch.
+
+=== Linienpräzisierung
+Die Idee, eine erkannte Linie zu präzisieren, basiert darauf, dass Linien je nach Heading der Straße an anderen Stellen zu erwarten sind, als wenn das Fahrzeug geradeaus auf eine Kreuzung zufährt. Außerdem wird ausgenutzt, dass für eine zuverlässige Navigation des Fahrzeugs und ein sicheres Halten vor der Haltelinie die Länge der Linie selbst keine große Relevanz hat. Wichtiger ist die tatsächliche Position. Deswegen wird im ersten Schritt die Linie verlängert. Nun wird die Linie in einem bestimmten Clipbereich abgeschnitten, an der sie bei Anfahrt aus dem aktuellen Winkel zu erwarten ist. Damit wird gewährleistet, dass selbst bei einer Detektion einer Ego- oder Opplinie, die relativ zu der tatsächlichen Lage im Bild falsch positioniert ist, eine Verbesserung der Lokalisierung erreicht werden kann.
+
+Der Clipbereich der Linie ist ein rechteckiger Sektor, der von der oberen Kante der ROI bis zur unteren Kante der ROI reicht. Die Position dieses Clipbereichs entlang der x-Achse ändert sich als Funktion des Headingwinkels. Die Idee ist, dass der Clipbereich der Ego Linie bei Frontalanfahrt an die Kreuzung bei $[0.5 * W_"ROI"; 0.75 * W_"ROI"]$ liegt, wobei $W_"ROI"$ die Breite der Region of Intersest ist. Dort ist die Egolinie zu erwarten, wenn das Fahrzeug frontal auf die Kreuzung zufährt. Die Opplinie liegt bei solch einer Anfahrt im Bereich $[0.15 * W_"ROI"; 0.4 * W_"ROI"]$. Diese Bereiche wurden durch Testing ermittelt.
+
+Dieser Clipbereich wird adaptiv je nach Headingwinkel angepasst. Fährt das Fahrzeug aus einer Kurve an die Kreuzung heran, müssen die Clipbereiche der E- und O-Linie fast übereinander liegen. Ohne adaptive Anpassung würde das Modul die Linien in einer falschen Position vermuten. 
+
+In @ada-clip-o ist qualitativ die Berechnung der neuen Position der rechten und linken Ränder des Clipbereichs für die O-Linie bei einer Linkskurve zu sehen. Es wird auf Basis des Heading ein Faktor zwischen $0$ und $1$ berechnet, welcher dann mit Basiswerten für die Position des linken und rechten Randes des Clipbereichs multipliziert wird, sodass bei vollem Einschlag ein Bereich $[0.05 * W_"ROI"; 0.25 * W_"ROI"]$ berechnet wird. Dies wird analog auch für eine rechte Kurve mit den Maximalwerten $[0.48 * W_"ROI"; 0.7 * W_"ROI"]$ und die Egolinie gemacht. (da werte auch einfügen?)
+
+#code-block(
+  caption: [Adaptives Clippen der Haltelinien, hier O-Linie, Qualitativ],
+  ```python
+angle_factor = (90.0 - angle) / (90.0 - 70.0)
+angle_factor = min(1.0, max(0.0, angle_factor))
+min_rel = min_rel_base + angle_factor * (0.05 - min_rel_base)
+max_rel = max_rel_base + angle_factor * (0.25 - max_rel_base)
+ ```,
+  highlight-lines: (
+  )
+) <ada-clip-o>
+
+=== Linienumgebung
+Es ist möglich, dass Linien als Ego- und Opplinie erkannt werden, die zu einer Spur oder einer Sperrfläche gehören. Um hierdurch Falschklassifikationen zu vermeiden, wird angenommen, dass tatsächliche Egolinien bei Erweiterung nach links nicht fortlaufend sind. Legt man somit eine _Prüffläche_ mit einem bestimmten Abstand links neben die erkannte Egolinie und prüft, ob die Pixel um diese Prüfllinie hell sind, handelt es sich nicht um eine reale Egolinie. Bei der Opplinie macht man dies zur rechten Seite.
+
+Die Berechnung der Prüflinie geschieht durch Berechnung aller vier neuen Koordinaten der Linie. Der Startpunkt der Prüflinie ($x_s$ und $y_s$) wird mit $x_s = x + d$ und $y_s$ mit $y + m * d$ berechnet. Analog dazu werden die Enden der Prüflinie $x_e$ und $y_e$ nach der selben Formel mit $x_s$ und $y_s$ als Startpunkte berechnet. Als Initialabstand $d$ von der ursprünglichen Linie wird $40$ gewählt. Als Länge der Prüflinie an sich wird ein Wert von $50$ gewählt. Die Weißdichte unter der Linie wird nach der Methode aus @pipeline-lineart berechnet.
+
+=== Linienposition
+Ferner wird die Position der Ego- und Opplinie vom Kreuzungszentrum und die Abstände der Linien zueinander (Höhe und Breite) auf Plausibilität geprüft.
 
 == Plausibilierung der Querlinien
 
