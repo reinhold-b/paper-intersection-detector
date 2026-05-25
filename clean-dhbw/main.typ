@@ -68,16 +68,6 @@
   // for more options check the package documentation (https://typst.app/universe/package/clean-dhbw)
 )
 
-= Packages to use
-- fletcher
-- lovelace
-- pavemat (für image darstellungen und ähnliches mit pixeln)
-- showybox für theoreme und so
-- lilaq (data visu)
-- zebraw for code
-
-
-
 
 = Abstract
 Bei der CAuDri-Challenge - CAuDri steht für Cognitive Autonomous Driving - treffen sich verschiedene Hochschulgruppen aus ganz Deutschland, um ihre autonomen Modellfahrzeuge in zwei Disziplinen, dem Free Drive und dem Obstacle Evasion, gegeneinander antreten zu lassen. Dabei muss das Fahrzeug auch Kreuzungen durchfahren können. In der aktuellen Version des Fahrzeugs werden Schilder an der Kreuzung erkannt und nach einer bestimmten Strecke hinter diesen gestoppt, um kurz vor der Haltelinie zum Stehen zu kommen. Eine Verbesserung dieses Systems ist eine Haltelinienerkennung. Diese ermöglicht ein präzisen Haltevorgang an der Haltelinie. Zusätzlich erfordern es die aktuellen Disziplinen der CAuDri-Challenge nur, an der Kreuzung den Spuren der Vorfahrtsstraße zu folgen. In einer neuen Disziplin der CAuDri-Challenge sollen aber beliebige Abbiegevorgänge an der Kreuzung möglich sein.
@@ -112,19 +102,166 @@ Die zu erkennenden Kreuzungen sind folgendende:
 
 Die zu erkennenden Kreuzungen sind standardisiert und sehen innerhalb der Strecke stets gleich aus.
 
+= Stand der Technik
+In der Praxis sind Kreuzungserkennungen essenziell, um einen autonomen Betrieb eines Fahrzeugs zu ermöglichen. Um Kreuzungen klassifizieren zu können, muss das Fahrzeug in zuerst die Haltelinien erkennen, die zu der Kreuzung gehören. Das autonome Fahrzeug muss berechnen, wann und ob es an der Kreuzung halten soll und um welche Art der Kreuzung es sich handelt.
+
+== Herausforderungen in der Detektion
+In der Detektion von Straßenmarkierungen kommt es innerhalb einer realen Fahrumgebung zu Problemen, die die Qualität der Erkennung erheblich beeinflussen können.
+#figure(
+    image("assets/detection_problems.png",
+    width: 60%),
+    caption: [Störfaktoren bei der Linienerkennung @survey-detect],
+) <detect-problems>.
+Dabei können Markierungen in ihren geometrischen Eigenschaften unterschiedlich sein (siehe @detect-problems (b)), schlechte Lichtbedingungen oder Überdeckungen durch Objekte (@detect-problems (e, i)) oder schlechte Sichtbedinungen durch Regen, Schnee oder Nebel seine (@detect-problems (f, h)) @survey-detect. 
+
+Dabei können die technischen Ansätze, um Haltelinien zu erkennen, in zwei Kategorien unterteilt werden. Die erste ist (1) klassischer feature-basierter Ansatz und der (2) deep-learning-basierte Ansatz. Beide weisen Vorteile und Nachteile auf. Während der klassische Ansatz kein Vorbereiten eines Datensatzes und kein Trainieren eines Modells vorraussetzt, kann der Ansatz anfälliger für Störfaktoren auf der Straße sein, wie etwa Objekte über der Haltelinie (Blätter, Erde, Dreck). Der deep-learning-basierte Ansatz kann eine höhere Robustheit gegenüber Störfaktoren erzielen, kann diese aber auch nicht im Gesamten ausschließen @stopline2. 
+
+Innerhalb der CauDri-Challenge sind geometrische Eigenschaften der Linien genormt. Es ist aber zu erwarten, dass die Detektion der Linien durch Lichtreflektionen der Sonne erschwert wird.
+
+== Klassischer Ansatz
+Der klassische Ansatz einer Haltelinienerkennung umfasst regelbasierte Algorithmen, die in mehreren Schritten Kanten erkennen, klassifizieren und filtern. Dabei gilt die Transformation des Bildes in die Vogelperspektive (auch birds-eye-view oder BEV) durch `Inverse Perspective Mapping` als Standard @stopline1. Dabei werden perspektivische Verzerrungen im Bild rückgängig gemacht, sodass man die geometrischen Attribute der Linien und deren Beziehungen untereinander für eine Klassifikation nutzen kann. TODO: BILD? Wird ein klassisches Bild verwendet, können beispielsweise Winkelbeziehungen zwischen Linien nicht mehr verwendet werden. Auch die Winkelausrichtungen, die Längen und die Dicke der Linien selbst können inkonsistent sein.
+
+Viele klassische Ansätze verwenden nun Algorithmen zur Kantenerkennung, die auf der Berechnung von Intensitätsunterscheiden zwischen Pixeln aufbauen @stopline1. Diese werden innerhalb einer Region Of Interest (ROI) erkannt. Aus dem gewonnenen Graustufenbild werden nun Linien erkannt. Dafür werden in der Regel Algorithmen wie die Hough-Transformation verwendet @Aly @stopline1. Es können folgend Farbwerte, Dicke, Länge und anderen geometrische Eigenschaften der Linien und deren geometrischen Beziehung untereinander (beispielsweise Schnittwinkel) genutzt werden, um Haltelinien zu klassifizieren @stopline1. 
+
+== Deep-Learning-basierter Ansatz
+Der bereits beschriebene klassische Ansatz zur Detektion von Haltelinien erreicht bei Einwirkung der in @detect-problems gezeigten Störfaktoren ungenaue Ergebnisse. Der deep-learning-basierte Ansatz kann durch ein Training auf einer großen Datenbasis robustere Ergebnisse liefern @stopline2.
+
+=== CNN basierte Detektion
+
+Eine Methode der Detektion beruht auf dem Nutzen von CNNs (Convolutional Neural Networks) zur Extraktion von Features aus Bildern. In einem von Lin et al. vorgestellten System wird ein AdaBoost-Klassifizierer mit einem Convolutional Neural Network (CNN) zu einem hybriden System verbunden @cnn-stopline. Der AdaBoost-Klassifizierer fungiert dabei als Regions-Proposal-Generator und erzeugt Kandidatenbereiche, die anschließend vom CNN klassifiziert werden. Dies ermöglicht einen effizienten Zweilagen-Filter, der falsche Positive reduziert und gleichzeitig hohe Verarbeitungsgeschwindigkeit beibehält. Eine wichtige Verbesserung stellt die Hard-Negative-Mining-Technik dar, die iterativ falsche Positive sammelt und das Modell darauf nachtrainiert, diese zu eliminieren. Dies führt zu einer signifikanten Reduktion von False Alarms @cnn-stopline.
+
+=== Linien-basierte Deep-Learning-Methoden
+
+Eine neuere Methode stellt die Verwendung von Linien-Detektoren als Zwischenmerkmale dar. Statt direkt mit Bounding-Boxen zu arbeiten, werden Linien als Segmente mit Dicke modelliert. Dies ermöglicht eine präzisere Erfassung der eigentlichen Haltelinien-Geometrie und reduziert Annotationsaufwand gegenüber pixelbasierten Methoden. Ein zweistufiger Ansatz kombiniert dabei einen Liniendetektor mit einem Stop-Linien-Detektor. Der Liniendetektor leitet den Prozess ein und hilft dem Netzwerk, sich auf Fahrbahnmarkierungen zu konzentrieren. Multi-Task Learning mit mehreren Verlustfunktionen (Zentrum-Verlust, Verschiebungs-Verlust, Dicke-Verlust und Segmentierungs-Verlust) verbessert die Robustheit des Modells. Diese Kombination ermöglicht sowohl effiziente Berechnung als auch hohe Genauigkeit unter komplexen Bedingungen @stopline2. TODO: nochmal drüberschauen.
+
+== Vergleich
+Allgemein ist zu vermuten, dass der deep-learning-basierte Ansatz eine robustere Liniendetektion erlaubt. Um ein solches System umzusetzen, müssen vorerst Daten gesammelt und aufbereitet werden, sodass man mit diesen Daten Modelle trainieren kann. Für den zugrunde liegenden Fall der Detektion innerhalb der CauDri-Challenge wird angenommen, dass eine Detektion von Haltelinien zur Klassifizierung der Kreuzung auch ohne das Training von Modellen durch einen klassischen Ansatz erreicht werden kann, da die die Strecke innerhalb der Challenge standardisiert und genormt ist, sowie keine starken Störfaktoren wie Wetter, Schmutz oder Überdeckungen aufweist. Ein Störfaktor ist die Lichtverschmutzung auf der Strecke, was aber durch eine passende Bildvorverarbeitung als lösbar angesehen wird.
+
+Die Implementierung des klassischen Ansatzes ist ferner aufgabenbedingt, ist aber im Kontext der CauDri-Challenge auch, wie zuvor erläutert, ein valider Ansatz.
+
 = Technischer Kontext
+Im folgenden Kapitel wird die Rahmenarchitektur des Fahrzeugs sowie der Software im Detail erläutert und der zu implementierende Detektor als Modul in diesem Gesamtsystem erklärt. 
+== Das Fahrzeug
+Bei dem Fahrzeug des DHBW SmartRollerz Teams der DHBW, bei dem das Kreuzungserkennungsmodul installiert werden soll, handelt es sich um ein vom Team selbst modelliertes RC-Fahrzeug.
+=== Karosserie
+Bei der Karosserie des Fahrzeugs handelt es sich um ein vom entsprechenden Team entworfenes Modell, welches mit einem 3D-Drucker gefertigt wird. Die Karosserie dient in erster Linie zum Schutz der Elektronik des Fahrzeugs. Herrausforderungen beim Entwurf der Karosserie sind es, den Anforderungen anderer Schnittstellenteams zu genügen und dabei eine Balance aus Praktikabilität, Leistung und dem Erfüllen der CauDri-Regeln zu finden @dhbwSmartRollerzTechnik.
+=== Kamera
+Damit das Fahrzeug die eigene Umgebung wahrnehmen kann, ist eine Kamera mit Fischaugenlinse verbaut, um ein maximal mögliches Sichtfeld zu gewährleisten. Diese liefert das Bild für alle Perceptionmodule, die in @stack näher erläutert werden.
+=== NUC
+Die NUC (Next Unit of Computing) ist ein kleiner PC, der es erlaubt, durch eigene Erweiterungen eine Recheneinheit für den Gebrauch in spezifischen Anwendungsfällen, wie etwa dem RC-Fahrzeug. Auf der NUC laufen alle relevanten Softwaremodule des Fahrzeugs.
+== Modulübersicht <stack>
+Der Modulstack des Fahrzeugs lässt sich in die Kategorien (1) Vision, (2) Perception & Planning, (3) Elektronik & Embedded und (4) Simulation unterteilen. Wichtig sind aber auch Module, die alle anderen Module unterstützen. So sind die `Camera Preprocessing` und die `State Machine` Module von hoher Wichtigkeit.
+=== Camera Preprocessing
+Das Camera Preprocessing Modul wandelt das Rohbild aus der am Fahrzeug installierten Kamera zu einem für anderen Module brauchbaren Bild um. Es implementiert mit Einbezug der Kamerakalibrierung die Transformationen des Fischaugenbilds in eine Frontalansicht, also eine klassische Kameraansicht nach vorne, sowie eine Vogelperspektive. Diese kann durch das Fischaugenobjektiv einen großen Teil der sichtbaren Straße abdecken und für Berechnungen von anderen Modulen nutzbar machen. 
+=== State Machine
+Die State Machine speichert den aktuellen Situationszustand des Fahrzeugs (beispielsweise `approaching_intersection` oder `default`). Damit können Module dynamisch ein- oder ausgeschalten werden. So kann beispielsweise das Kreuzungserkennungsmodul eingeschalten werden, wenn die Object Detection ein Stopschild erkennt (siehe dazu @int-sys).
+=== Vision
+Der Softwarestack Vision beschäftigt sich mit dem Wahrnehmen der Umgebung und dem Ableiten von relevanten Informationen für die weitere Planung der Fahrt. Innerhalb des Smarty Stacks sind dies folgende Module:
++ Fahrspurerkennung
++ Objekterkennung
++ Kreuzungserkennung
++ SLAM
+==== Fahrspurerkennung
+Dabei sagt die Fahrspurerkennung mit Hilfe von Machine Learning Ansätzen drei Linien auf dem Bildinput heraus, die die drei Spuren der Straße darstellen. Diese können in einem weiteren Schritt von der Pfadplanung genutzt werden, um die weitere Trajektorie des Fahrzeugs zu planen.
+==== Objekterkennung
+Die Objekterkennung ist ein weiteres Modul des Visionstack, das Objekte in der Umgebung des Fahrzeugs mit Hilfe von ML-Ansätzen detektiert und klassifiziert. Im Kontext der CAuDri-Challenge werden durch das Objekterkennungsmodul insbesondere drei Klassen von Objekten erfasst: Verkehrsschilder, die wichtige Informationen für die Fahrtplanung und Regelkonformität liefern, also beispielsweise Fußgänger, deren Detektion essenziell für die Vermeidung von Kollisionen ist. Auch andere Fahrzeuge werden erkannt, da diese vom Egofahrzeug während der Challenge umfahren werden müsse. Die erkannten Objekte mit ihren Positionen und Klassifikationen werden anschließend an die Planungs- und Regelungsmodule weitergeleitet, um sichere und verkehrsregelkonforme Fahrmanöver zu ermöglichen.
+==== Kreuzungserkennung
+Die Kreuzungserkennung wird von dem in dieser Arbeit zu implementierenden Modul bewerkstelligt und erkennt die Position als auch die Art der Haltelinie und bestimmt aufgrund dieser Daten die Art der Kreuzung, sodass auch hier die Pfadplanung eine sichere Durchfahrt durch die Kreuzung vornehmen kann.
+==== Simultaneous Localization and Mapping
+Das Modul SLAM (Simultaneous Localization and Mapping) beschäftigt sich mit der Konstruktion einer internen Karte der Strecke während sich das Fahrzeug über diese bewegt @alsinet2008slam. Gleichzeitig kann das Fahrzeug diese Karte nutzen, um sich dann theoretisch ohne Vision und Perzeption auf der Strecke zurechtzufinden @alsinet2008slam. Das SLAM Modul soll für die Disziplin Navigation verwendet werden, in welcher das Fahrzeug mehrere Objekte auf der Strecke (Landmarks) in einer zufälligen Reihenfolge abfahren muss.
+=== Perzeption und Planung
+Die Modulgruppe Perzeption und Planung beschäftigt sich mit folgenden Aufgabenfeldern:
++ Object Tracking
++ Pfadplanung
++ Regelung
+==== Object Tracking
+Die Aufgabe des Object Trackings besteht darin, Objekte, die die Objekterkennung bereits registriert hat, über mehrere Frames hinüber zu verfolgen, selbst wenn die Detektion dieser Objekte für einige Frames ausbleibt. Getrackte Objekte sind dabei Straßenschilder, Fußgänger oder andere Fahrzeuge. Die Bewegung des Fahrzeugs wird hier mit einbezogen und somit eine Vorhersage getroffen, wo sich bereits bekannte Objekte befinden könnten.
+Diese Informationen werden vom Fahrzeug verwendet, um auch bei Unsicherheit die richtige Trajektorie zu planen.
+==== Pfadplanung
+Die Pfadplanung berechnet die Trajektorie, die das Fahrzeug auf der Strecke fährt. Es bezieht dabei Informationen von der Spurerkennung sowie des Object Trackings und konstruiert auf dieser Basis einen Pfad, den das Auto dabei fährt. Der Pfad selbst wird dabei nur für den Bereich geplant, den die Kamera sehen kann.
+==== Regelung
+Die Aufgabe der Regelung ist es, dem geplanten Pfad zu folgen. Dafür muss sie bei Abweichungen der Trajektorie vom Pfad gegenregeln, um den Fehler zwischen aktueller Fahrbahn und geplanter Trajektorie zu minimieren. In einem weitern Schritt kann auch die Längsregelung umgesetzt werden, die dann die Geschwindigkeit des Fahrzeugs regelt. Dies ist in der aktuellen Version des Fahrzeugs noch nicht umgesetzt, es fährt konstant eine fest eingestellte Geschwindigkeit.
+=== Andere Module
+==== Elektronik und Embedded
+Die Module Elektronik und Embedded übergreifen die Platinen auf dem Fahrzeug und die Verbindungen zwischen den Bauteilen. Sie ermöglichen somit die Kommunikation der Komponenten mit den Aktoren sowie das Steuern von Außen im Notfall und das Sammeln von Telemetrie.
+==== Simulation
+Das Modul Simulation entwickelt Simulationsmodelle, die es erlauben, Trainingsdaten für das Training der Lane Detection und Object Detection Modelle zu trainieren.
+== Softwarearchitektur
+Nun wird die Softwarearchitektur des Fahrzeugs beschrieben, welche die Kommunikation der Module umfasst, die in der Kreuzungsdetektion genutzten Bibliotheken und die allgemeine Struktur des Moduls. Die Fahrzeugsoftware läuft auf Ubuntu 22.04.
+=== ROS2
+Damit innerhalb des Fahrzeugs Ergebnisse der Module effizient und in Echtzeit ausgetauscht werden können, wird ROS2 (Robot Operating System 2) als Middleware benutzt. ROS2 erlaubt eine Abstraktion von verschiedenen Softwaremodulen. Diese werden `Nodes` genannt @reke2020self. ROS2 steigt dabei im Vergleich zu ROS1 auf das DDS (`Data Distribution Service`) Modell um, welches Daten innerhalb des Systems in Echtzeit nach dem Publish/Subscribe Modell verteilt @ros2. Somit können andere Nodes ihre Ergebnisse auf bestimmten `Topics` (dt. Thema) veröffentlichen und gleichzeitig auch auf anderen Topics zuhören und somit Daten empfangen. 
 
-= Modulübersicht
+=== Bibliotheken
+Das Modul nutzt mehrere etablierte Python-Bibliotheken für die Bildverarbeitung und numerische Berechnungen:
 
-= Architektur und Datenfluss
+==== OpenCV (Open Source Computer Vision Library)
+ist eine weit verbreitete Bibliothek für Echtzeit-Bildverarbeitung und Computer Vision. Sie wird in diesem Projekt für zentrale Funktionen eingesetzt: Kantenerkennung mittels Canny Edge Detection, morphologische Operationen (Öffnen und Schließen), bilaterale und Median-Filter sowie die Perspective-Warp-Transformation für die BEV-Konvertierung. OpenCV bietet optimierte, production-ready Implementierungen dieser klassischen Bildverarbeitungsalgorithmen @openCVIntro4x.
 
-= Entwicklungs- und Evaluationsprozess
+==== Numpy
+ wird für effiziente numerische Operationen auf mehrdimensionalen Arrays verwendet @numpyWhatIsNumpy. Insbesondere wird NumPy innerhalb des Moduls für Operationen zur Linienfusion und Histogrammberechnung genutzt.
+
+==== scikit-learn
+ stellt spezialisierte Machine-Learning-Funktionen bereit @scikitLearnGettingStarted. Für dieses Projekt ist insbesondere der DBSCAN-Algorithmus (Density-Based Spatial Clustering of Applications with Noise) und der PCA Algorithmus relevant, die für die experimentelle Sperrflächenerkennung sowie zur Gruppierung von Liniensegmenten verwendet werden können (siehe @pca-label und @dbscan-label).
+
+Diese Kombination von Bibliotheken erlaubt eine effiziente Implementierung regelbasierter Bildverarbeitungsalgorithmen mit guter Rechenleistung auf embedded Hardware wie der NUC des Fahrzeugs.
+Diese Kombination von Bibliotheken erlaubt eine effiziente Implementierung regelbasierter Bildverarbeitungsalgorithmen mit guter Rechenleistung auf embedded Hardware wie der NUC des Fahrzeugs.
+
+=== Struktur
+
+Das Kreuzungserkennungsmodul folgt einer modularen Architektur mit folgenden Untermodulen:
+
+#table(
+  columns: 2,
+  [*Modul*], [*Beschreibung*],
+  [`preprocessing.pipe`], [Bildvorverarbeitungspipeline mit Filtern und morphologischen Operationen],
+  [`utils.filter`], [Filterfunktionen zur Selektion von Liniensegmenten nach Winkeln, Längen, ROI und optischen Eigenschaften],
+  [`utils.checks`], [Validierungsfunktionen zur Überprüfung geometrischer Plausibilität von Linienpaaren],
+  [`utils.tools`], [Bildverarbeitungswerkzeuge für Kantenerkennung, Eckenerkennung, Linienfusion und Gap-Detection],
+  [`utils.models`], [Datenstrukturen und Konfigurationsmodelle für parametrisierbare Hyperparameter],
+  [`agreggator`], [Bufferbasierter Ergebnisaggregator zur Erhöhung der Robustheit über mehrere Frames],
+  [`debug_visualizer`], [Visualisierungsfunktionen für Zwischenergebnisse der Pipeline],
+)
+
+Das Kreuzungserkennungsmodul folgt dabei der folgenden groben Struktur, die im Detail in erklärt wird.
+#let general-pipe = align(center)[#diagram(
+  spacing: 8pt,
+  cell-size: (10mm, 10mm),
+  edge-stroke: 1pt,
+  edge-corner-radius: 3pt,
+  mark-scale: 60%,
+  
+  node((0, 0), [Rohbild], width: 18mm, fill: rgb("#ff89f7").lighten(60%), stroke: 1pt + rgb("#ff89f7").darken(20%), shape: shapes.hexagon.with()),
+  edge((0, 0), (2, 0), "-|>"),
+  
+  node((2, 0), [Preprocessing], width: 22mm, fill: rgb("#ffff59").lighten(60%), stroke: 1pt + rgb("#ffff59").darken(20%), corner-radius: 3pt),
+  edge((1, 0), (4, 0), "-|>"),
+  
+  node((4, 0), [Detektion], width: 22mm, fill: rgb("#5990ff").lighten(60%), stroke: 1pt + rgb("#598bff").darken(20%), corner-radius: 3pt),
+  edge((2, 0), (6, 0), "-|>"),
+
+  node((6, 0), [Plausibilisierung], width: 22mm, fill: rgb("#5990ff").lighten(60%), stroke: 1pt + rgb("#598bff").darken(20%), corner-radius: 3pt),
+  edge((2, 0), (8, 0), "-|>"),
+ 
+  
+  node((8, 0), [Ergebnisveröffentlichung], width: 30mm, fill: rgb("#50dd96").lighten(60%), stroke: 1pt + rgb("#50dd96").darken(20%), shape: shapes.hexagon.with()),
+)]
+
+#figure(
+  caption: [Allgemeine Pipeline des Kreuzungserkennungsmodul],
+  general-pipe
+) <general-pipe>
+
+
+=== Moduleinordnung im Gesamtsystem <int-sys>
+Das Kreuzungserkennungsmodul arbeitet in Zusammenarbeit mit anderen Nodes. Um das Kamerabild des `camera_preoprecessing` Nodes zu nutzen, hört das Modul auf dem Topic `/camera/birds_eye`. Das Debugbild des Moduls wird auf `/crossing_detection/debug/image` veröffentlicht und kann das zu Debugzwecken in Echtzeit analysiert werden. Das Ergebnis wird auf `/crossing_detection/result` veröffentlicht und wird von der State Machine des Fahrzeugs genutzt, um an der Haltelinie zum Stop zu kommen.
+
+= Entwicklung des Moduls
 Um aus einem Rohbild aus der `camera_preprocessing` Node Informationen zu gewinnen, wird das Rohbild innerhalb einer Pipeline verarbeitet. Innerhalb der Pipeline sind mehrere Designentscheidungen zu treffen, um ein bestmögliches Ergebnis zu erzielen.
 Der Entwicklungsprozess wird in Iterationen durchgeführt, nach der jeder das Ergebnis der Pipeline evaluiert und getestet wird. 
 == Bildvorverarbeitung
 Das Rohbild der `camera_preprocessing` Node entspringt einer Kamera, die auf einem Gestell hinten am Fahrzeug angebracht ist. Dieses liefert ein schwarz-weiß Bild, welches dieses Modul nutzt, um Kreuzungen zu klassifizieren.
 
-Es stellt sich während der Entwicklung heraus, dass es von Vorteil ist, das Bild in einigen Schritten zu verarbeiten, bevor es von der Systempipeline verarbeitet wird.
+Es stellt sich während der Entwicklung heraus, dass es von Vorteil ist, das Bild in einigen Schritten zu verarbeiten, bevor es von der Systempipeline verarbeitet wird. Die Vorverarbeitungspipeline wurde durch Testen mit Bilddaten erarbeitet, wird aber auch durch andere Umsetzungen aus der Literatur gestützt, wie bei Tsai et al. @preprocessing1.
 
 === Bildperspektive
 Bevor die allgemeine Vorverarbeitungspipeline erklärt wird, muss entschieden werden, ob für das Modul eine Frontalansicht der Kamera oder die Vogelperspektive gewählt wird, die eine perspektivische Verzerrung der Frontalansicht ist. TODO: Bilder einfügen
@@ -211,8 +348,8 @@ TODO QUELLE UND BILDER, CODE EINFÜGEN
 
 === Minimierung von Lichtverschmutzung
 
-
-
+=== Kontrastoptimierung
+mit einbeziehen, dass nur da der kontrast erhöht wird, wo vorher linien erkannt wurden..doppelte Lineinerkennung
 
 == Kantenerkennung
 Ziel des ersten Entwicklungsinkrements ist das Extrahieren von Linien aus dem Rohbild. Dafür werden verschiedene Methodiken betrachtet, mit denen aus dem Rohbild eine Menge an Linien extrahiert werden kann, die dann in weiteren Schritten zum Bestimmen der Ego- und Opp-Haltelinien genutzt werden können.
@@ -556,7 +693,7 @@ Um die Winkel und Mittelpunkte der Linien zu berechen, wird eine Linie zuerst al
 ==== Gruppierung der Linien
 Nun wird über alle Linien iteriert. Bei jeder Iteration `i` wird nun geprüft, ob diese Linie bereits überprüft wurde. Ist dies nicht der Fall, wird in einer weiteren Schleife im Bereich $[i + 1, n]$ der Differenzwinkel und die Differenzdistanz des Elements $j$ zum Element $i$ berechnet. Liegen diese Werte innerhalb eines vorgegebenen Toleranzbereichs, werden sie in eine Gruppe mit dem Element $i$ hinzugefügt. Es bilden sich somit Gruppen aus Linien mit ähnlicher Ausrichtung, die nah beieinander liegen.
 Gruppen mit zu wenigen Mitgliedern werden gelöscht.
-==== Principal Component Analysis
+==== Principal Component Analysis <pca-label>
 Für jede Linie werden die Start- und Endpunkte bestimmt. Die zuvor bestimmten Gruppen werden somit also zu 2D-Punktemengen. Nun wird die `Principal Component Analysis` (PCA) verwendet, um die Gerade zu finden, die am besten durch die gesamte Punktwolke passt.
 
 Um die PCA durchzuführen, müssen die Punkte vorverarbeitet werden. Zum Einen wird der Mittelpunkt aller Punkte bestimmt und anschließend jeder Punkt um diesen Mittelwert verschoben. Das hat zur Folge, dass der Mittelwert aller Punkte nun im Ursprung liegt @pca (S. 433). Nun wird die `Single Value Decomposition` (SVD) genutzt, um die Punktwolke in Hauptachsen zu zerlegen. Im Code wird dies mit folgendem Befehl durchgeführt: `U, S, Vt = np.linalg.svd(pts - mean)`. `Vt` liefert nun eine Matrix mit den Hauptachsen der Punktwolke. Darin ist der erste Vektor `Vt[0]` die Hauptachse der Datenpunkte, also die Achse "in der sich die Punkte am weitesten ausbreiten". Die zweite Achse liegt dann orthogonal auf der Hauptachse @pca (S. 434ff). Es wird die erste Hauptachse genutzt, um die "Richtung" der Punktwolke zu finden, die dann zum konstruieren der fusionierten Linie benutzt werden kann. die Punkte aus der Punktewolke werden jetzt entlang der Hauptachse projeziert und anschließend die Extrema $P_1$ und $P_2$ der Projektion gespeichert. Diese werden nun mit der Formel $p = "mean" + m*s$ also $P_"2d_max" = "mean" + m*P_1$ und $P_"2d_min" = "mean" + m*P_2$ zurück in den 2D-Raum gerechnet. Das sind dann die Punkte der fusionierten Linie. Diese fusionierte Linie wird nun einem Ergebnisarray angehangen.
@@ -675,7 +812,7 @@ Bei weiterer Überlegung, die tatsächliche Kreuzungsmitte zu berechnen, wird er
 
 Es ist denkbar, die Schnittpunkte der Spurlinien zu berechnen und daraufhin daraus das Kreuzungszentrum abzuleiten. Da bisher kein Ansatz ausgearbeitet wurde, um die Spuren aus dem Kamerabild zu berechnen, muss zuerst festgelegt werden, welche der Linien aus der gesamten Linienmenge potentielle Spuren sind.
 
-==== DBSCAN
+==== DBSCAN <dbscan-label>
 Ein Ansatz, um Spurlinien zu erkennen und daraufhin die Kreuzungsmitte zu berechnen, ist der `DBSCAN` Algorithmus. 
 
 Der Algorithmus beruht auf der Idee, aus einem mehrdimensionalen Datensatz so genannte `Cluster` (dt. Haufen) an Datenpunkten zu finden, wobei die clusterinterne Ähnlichkeit maximiert und die Ähnlichkeit zwischen den Clustern minimiert werden soll @dbscan (S. 232). Ein Clustering Algorithmus wird dann als effektiv angesehen, wenn er viele der folgenden Kriterien abdeckt @dbscan (S. 232):
@@ -1040,18 +1177,104 @@ max_rel = max_rel_base + angle_factor * (0.25 - max_rel_base)
   )
 ) <ada-clip-o>
 
-=== Linienumgebung
+=== Linienumgebung <check-extension>
 Es ist möglich, dass Linien als Ego- und Opplinie erkannt werden, die zu einer Spur oder einer Sperrfläche gehören. Um hierdurch Falschklassifikationen zu vermeiden, wird angenommen, dass tatsächliche Egolinien bei Erweiterung nach links nicht fortlaufend sind. Legt man somit eine _Prüffläche_ mit einem bestimmten Abstand links neben die erkannte Egolinie und prüft, ob die Pixel um diese Prüfllinie hell sind, handelt es sich nicht um eine reale Egolinie. Bei der Opplinie macht man dies zur rechten Seite.
 
 Die Berechnung der Prüflinie geschieht durch Berechnung aller vier neuen Koordinaten der Linie. Der Startpunkt der Prüflinie ($x_s$ und $y_s$) wird mit $x_s = x + d$ und $y_s$ mit $y + m * d$ berechnet. Analog dazu werden die Enden der Prüflinie $x_e$ und $y_e$ nach der selben Formel mit $x_s$ und $y_s$ als Startpunkte berechnet. Als Initialabstand $d$ von der ursprünglichen Linie wird $40$ gewählt. Als Länge der Prüflinie an sich wird ein Wert von $50$ gewählt. Die Weißdichte unter der Linie wird nach der Methode aus @pipeline-lineart berechnet.
 
-=== Linienposition
+=== Validierung von Querlinienparen
 Ferner wird die Position der Ego- und Opplinie vom Kreuzungszentrum und die Abstände der Linien zueinander (Höhe und Breite) auf Plausibilität geprüft.
+Bei der Erkennung von Querlinien (Stop-Linien) können sowohl einzelne als auch Paare von Linien auftreten. Die Funktion `check_stop_line_pair_plausibility()` validiert diese Linien nach plausiblen geometrischen Kriterien.
 
-== Plausibilierung der Querlinien
+Die Validierungslogik arbeitet nach folgendem Schema:
+
+1. *Beide Linien sind `None`*: Das Paar wird als ungültig zurückgewiesen.
+
+2. *Genau eine Linie ist `None`*: Die vorhandene Linie wird als gültig akzeptiert, da eine einzelne Stop-Linie zulässig ist.
+
+3. *Beide Linien existieren*: Es werden vier Kriterien überprüft:
+   - *Vertikale Ausrichtung*: Die durchschnittlichen y-Koordinaten beider Linien müssen innerhalb einer Toleranz von `max_y_diff = 30` Pixeln liegen. Sind die Linien zu weit auseinander, werden sie als Falschdetektionen verworfen.
+   - *Horizontale Separation*: Der horizontale Abstand zwischen den Mittelpunkten muss im Bereich von `min_x_separation = 50` bis `max_x_separation = 200` Pixeln liegen. Ein zu kleiner Abstand deutet auf Duplikate hin, ein zu großer auf unabhängige Artefakte.
+   - Bei Erfüllung aller Kriterien wird das Linienpaar als valide zurückgegeben.
+   - Bei Verletzung wird `(None, None)` zurückgegeben.
+
+Die durchschnittliche y-Position einer vertikalen Linie wird als $y_"avg" = (y_1 + y_2) / 2$ berechnet, analog die x-Position als $x_"avg" = (x_1 + x_2) / 2$. Dies vereinfacht die Positionsvergleiche und macht sie robuster gegen kleinere Erkennungsabweichungen.
+
+== Plausibilierung vertikaler Haltelinien
+Auch die rechte und linke Haltelinie werden validiert. Diese Validierung folgt analog der Validierung der Ego-Haltelinie und der Gegenspurhaltelinie und ist in @check-extension beschrieben.
+
+In einem weiteren Schritt werden auch die vertikalen Haltelinien nach einigen geometrischen Kriterien herausgefiltert. Dabei werden zwei separate Validierungsfunktionen für die linke und rechte Stop-Linie verwendet.
+In einem weiteren Schritt werden auch die vertikalen Haltelinien nach einigen geometrischen Kriterien herausgefiltert. Die rechte Stop-Linie muss oberhalb der Kreuzung liegen, innerhalb der ROI-Grenzen platziert sein und rechts des Kreuzungsmittelpunkts positioniert sein. Die linke Stop-Linie muss symmetrisch dazu links des Kreuzungsmittelpunkts liegen. Linien, die diese Bedingungen nicht erfüllen, werden als Falschdetektionen verworfen.
+
+Nun wird die Dicke der Haltelinien gemessen. Diese unterscheidet sich von der Dicke einer Spur. Damit können Falschklassifikationen während der Anfahrt auf eine Kreuzung oder beim Herausfahren durch Verwechslung mit der Fahrspur ausgeschlossen werden. 
 
 == Ergebnisaggregator
+Die Kreuzungserkennung arbeitet framebasiert und besitzt kein "Gedächtnis", welches Klassifikationen aus älteren Frames speichert. Das führt zu Problemen, da das System in dem Fall, dass eine Haltelinie in einem Frame nicht erkannt wird, sofort das Ergebnis ändert. Hat das System nun mehrere Frames hintereinander die Kreuzung richtig erkannt, verliert aber in einem Frame die Erkennung, kann die Ausgabe eines falschen Ergebnisses Probleme bei andere Modulen wie der Routenplanung auslösen.
 
+Um dieses Problem zu lösen wird ein `Ergebnisaggregator` eingebaut. Dieser soll als Gedächtnis des Systems arbeiten. Es gibt mehrere Methoden, ein solches Gedächtnis zu implementieren. Eine bewährte Methode ist die Verwendung eines Kalman-Filters.
+
+==== Kalman-Filter
+
+Der Kalman-Filter ist ein iterativer Algorithmus, der Messungen mit Unsicherheiten kombiniert, um eine optimale Schätzung des Systemzustands zu produzieren. Er funktioniert in zwei Phasen: der Vorhersagephase (Prediction) und der Aktualisierungsphase (Update).
+
+In der Vorhersagephase wird der nächste Zustand basierend auf einem Systemmodell und der bisherigen Schätzung vorhergesagt. In der Aktualisierungsphase wird die Vorhersage mit einer neuen Messung kombiniert, um eine verbesserte Schätzung zu erhalten. Der Filter gewichtet dabei automatisch, wie sehr der Schätzung oder der Messung zu trauen ist, basierend auf deren Unsicherheiten.
+
+Für die Kreuzungserkennung kann der Kalman-Filter verwendet werden, um die erkannten Haltelinien über mehrere Frames hinweg zu glätten. Wenn eine Haltelinie in einem Frame nicht erkannt wird, behält der Filter eine Vorhersage basierend auf den vorherigen Frames bei, statt sofort das Ergebnis zu ändern. Dies führt zu robusteren Erkennungsergebnissen.
+
+==== Bufferbasierter Aggregator
+
+Im vorliegenden System wird statt eines klassischen Kalman-Filters ein bufferbasiertes Aggregatorsystem verwendet. Dieses System verwaltet für jede Haltelinienart (Ego, Opp, Stop-Links, Stop-Rechts) einen Konfidenzpuffer im Bereich von 0.0 bis 1.0. Diese Buffer dienen als "Gedächtnis" des Systems über mehrere Frames hinweg.
+
+Der Mechanismus funktioniert nach dem Prinzip der exponentiellen Glättung. Wird eine Haltelinie in einem Frame erkannt, erhöht sich der entsprechende Buffer um einen festgelegten Inkrementwert. Wird sie nicht erkannt, sinkt der Buffer um einen Dekrementwert. Der Inkrementwert und der Dekrementwert sind für jeden Linientyp unterschiedlich kalibriert. Beispielsweise hat die Opp-Linie einen höheren Inkrementwert (0.25) als die Ego-Linie (0.18), da die Opp-Linie in der Regel zuverlässiger erkannt wird.
+
+Jeder Linientyp hat zudem einen individuellen Schwellenwert. Die Haltelinie wird als valide ausgegeben, wenn ihr Buffer diesen Schwellenwert überschreitet. Dadurch wird verhindert, dass einzelne Erkennungsausfälle zu Sprüngen in der Ausgabe führen. Ein erkannter Frame erhöht zwar den Buffer, reicht aber nicht aus, um den Ausgabewert sofort zu ändern. Dafür sind mehrere konsistente Erkennungen nacheinander nötig.
+
+Das System berechnet zusätzlich ein Stabilitätsmaß basierend auf der Historie der Bufferwerte über die letzten Frames. Ein stabiler Buffer bedeutet weniger Rauschen und erhöht das Vertrauen in die aktuelle Erkennung. Die Gesamtkonfidenz wird aus den durchschnittlichen Bufferwerten aller vier Linientypen berechnet und mit dem Stabilitätsmaß gewichtet. Dies ergibt einen Konfidenzwert zwischen 0.0 und 1.0, der die Zuverlässigkeit der aktuellen Kreuzungserkennung angibt.
+
+Der Aggregator gibt schließlich über die Methode `get_crossing_type()` die aktuelle Klassifikation der Kreuzung anhand eines Strings aus, der nach folgendem Schema aufgebaut ist: `eX-oX-lX-rX`. Die Präfixe stehen für die einzelnen Haltelinien (Ego, Opp, Left, Right) und das X kann folgende Werte annehmen: n-`None`, s-`solid`, d-`dotted`. Der Aggregator liefert somit die Gesamtklassifikation als Ergebnis der Pipeline, welches wie folgt aussehen könnte: `es-os-ln-rn`.
+
+== Bild zu Welt Transformation
+
+= Konzeption einer Sperrflächenerkennung
+
+Im Laufe der Entwicklung wurde versucht, eine zusätzliche Sperrflächenerkennung zu implementieren, um gekennzeichnete Parkplätze und Sperrflächen in der Umgebung des Fahrzeugs zu detektieren. Dies würde dem autonomen Fahrzeug ermöglichen, solche Bereiche zu erkennen und sie bei der Planung von Bewegungsmanövern zu berücksichtigen.
+
+Die Implementierung folgte einem ähnlichen Ansatz wie die bestehende Kreuzungserkennung, nutzte aber modifizierte Parameter. Die Pipeline begann mit der gleichen Linienerkennung aus der Bildvorverarbeitung. Statt jedoch nach horizontalen und vertikalen Linien zu filtern (wie in der Kreuzungserkennung), wurde bei der Sperrflächenerkennung nach Linien gefiltert, die einen Winkel im Bereich von 45° bis 135° aufweisen. Dies zielt darauf ab, die diagonalen oder schrägen Begrenzungslinien von Parkplätzen und Sperrflächen zu erfassen.
+
+Nach der Winkelfilterung wurden die erkannten Liniensegmente mittels DBSCAN (Density-Based Spatial Clustering of Applications with Noise) klassifiziert. Dieser Algorithmus gruppiert räumlich nah beieinander liegende Linien zu Clustern, wodurch zusammenhängende Flächengrenzen identifiziert werden können. Um die Geometrie dieser Cluster besser zu analysieren, wurde eine Hauptkomponentenanalyse (PCA) durchgeführt. Die PCA reduzierte die Dimensionalität der Liniensegmente und identifizierte die Hauptrichtung und Ausdehnung der erkannten Sperrflächen.
+
+Trotz des konzeptionell vielversprechenden Ansatzes stellte sich in der praktischen Umsetzung heraus, dass die Robustheit dieser Sperrflächenerkennung begrenzt war. Die Parametrisierung des DBSCAN-Algorithmus erwies sich als kritisch und abhängig von den spezifischen Szenen-Charakteristiken. In komplexen Umgebungen mit vielen Linien wurde der Algorithmus anfällig für Fehlclusterungen. Zusätzlich zeigte sich, dass die Winkelfilterung auf 45°–135° zu restriktiv war und viele echte Sperrflächenkandidaten ausschloss. Aufgrund dieser Limitationen wurde die Sperrflächenerkennung in der endgültigen Pipeline deaktiviert und bleibt eine Aufgabe für zukünftige Verbesserungen.
+
+TODO: hier noch einfügen verweise zu den algos, die ich schon erklärt hatte in dem anderen teil
+
+TODO: BILD einfügen
+
+TODO: pipeline diagramm einfügen
+= Evaluation
+
+= Fazit
+== Kritische Reflexion
+Innerhalb der Arbeit wurde ein robustes System zur Klassifikation von Kreuzungen implementiert, welches für verschiedene Disziplinen innerhalb der CauDri-Challenge genutzt werden kann.
+=== Ergebnisse
+Allgemein ist das Modul eine Verbesserung gegenüber dem zuvor genutzen Ansatz, bei dem eine festgelegte Strecke nach Erkennung des Schildes abgefahren wird. Das Modul erkennt die eigene Haltelinie robust und verhilft dem Fahrzeug somit zu einem sicheren Halt an der Kreuzung.
+
+Durch eine Bildvorverarbeitungspipeline kann das System Reflexionen zu einem gewissen Grad herausfiltern und tatsächliche Haltelinienkandidaten für eine spätere Detektion hervorheben.
+
+Aus diesen Kandidaten werden dann durch eine mehrschrittige Pipeline alle Linien an der Kreuzung, sowie deren Linienart erkannt.
+=== Herausforderungen
+Neben den positiven Ergebnissen des Systems konnten auch Herausforderungen festgestellt werden, die der klassische Ansatz während der Entwicklung und dem Testing hervorbrachte.
+==== Kamerabedingte Verzerrungen
+Durch die Transformation des Bilds in die Vogelperspektive kam es im oberen Bereich der ROI zu starken Verzerrungen von Linien, wenn diese nicht genau waagerecht im Bild lagen. Waren diese leicht diagonakl, wurden die Linien stufenartig dargestellt. Das war ein Problem für die Liniendetektion, konnte aber durch die Bildvorverarbeitungspipeline in großen Teilen behoben werden. Mit einem Deep-Learning-basierten Ansatz hätte man möglicherweise die Robustheit des Systems gegenüber verzerrten Liniendarstellungen verbessern können. 
+==== Verbesserte False Alarm Rate
+Um die Anzahl an Falschdetektionen zu minimieren sind eine nicht unerhebliche Anzahl an Prüfmethoden von Nöten, die Kandidaten herausfiltern. Falsche Detektion können die eigene Spur sein, die Spur der Querstraße, Fahrstreifenbegrenzungen oder Linien von Sperrflächen sein. Mit Prüfmethoden konnten Falschalarme minimiert werden. Mit einem modellbasierten Ansatz hätte man aber möglicherweise eine stärkere Generalisierung erreicht, die robuster gegen falsche Detektionen gewesen wäre.
+==== Schnelligkeit der Pipeline
+Wie bereits beschrieben, besteht das System aus vielschichtigen Pipelines, die verschiedene Aufgaben erledigen und innerhalb der Hauptpipeline laufen. Außerdem wurde auch bereits beschrieben, dass viele Rechenschritte für das Herausfiltern von falschen Kandidaten und der Plausibilierung von Ergebnissen genutzt werden. Die Laufzeit des Systems stellt kein Problem für den Betrieb im Fahrzeug dar, kann aber optimiert werden.
+== Limitationen
+
+== Ausblick
+=== Erweiterungspotenzial 
+=== Langfristige Perspektiven
+= Danksagung
 = Erläuterungen
 
 Im folgenden werden einige nützliche Elemente und Funktionen zum Erstellen von Typst-Dokumenten mit diesem Template erläutert.
