@@ -345,11 +345,27 @@ TODO QUELLE UND BILDER, CODE EINFÜGEN
 
 === Morphologisches Öffnen und Schließen
 
+Morphologische Operationen sind bildverarbeitende Techniken, die die Form von Objekten in Binärbildern modifizieren @Soille2004. Sie werden in dieser Pipeline eingesetzt, um Rauschen zu reduzieren und zusammenhängende Strukturen zu verstärken.
 
-=== Minimierung von Lichtverschmutzung
+Das morphologische Schließen (engl. Closing) ist eine Kombination aus einer Dilatation gefolgt von einer Erosion. Die Dilatation erweitert helle Regionen und füllt dabei kleine schwarze Löcher innerhalb von Objekten. Die nachfolgende Erosion reduziert die erweiterten Regionen wieder auf ihre ursprüngliche Größe. Das Ergebnis ist, dass kleine Löcher innerhalb erkannter Linien geschlossen werden, ohne die Gesamtform wesentlich zu verändern. Dies ist besonders nützlich, um unterbrochene Linienabschnitte wieder zu verbinden, die durch Rauschen oder Lichtvariationen entstanden sind @Soille2004.
 
-=== Kontrastoptimierung
-mit einbeziehen, dass nur da der kontrast erhöht wird, wo vorher linien erkannt wurden..doppelte Lineinerkennung
+Das morphologische Öffnen (engl. Opening) arbeitet gegensätzlich: Erosion gefolgt von Dilatation. Die Erosion entfernt kleine helle Objekte und verkleinert größere Objekte, während die Dilatation danach wieder vergrößert. Das Öffnen ist effektiv zur Entfernung von Rausch-Objekten oder unerwünschten kleinen Strukturen, ohne größere Linienstrukturen zu zerstören @Soille2004.
+
+In der Kreuzungserkennung wird diese Kombination verwendet, um das nach der Canny-Kantenerkennung erhaltene Binärbild zu bereinigen. Das Öffnen entfernt kleine Rausch-Artefakte, während das Schließen unterbrochene Linien wieder verbindet. Dies führt zu einer robusteren Vorbereitung der Bilder für die nachfolgende Linienerkennung.
+
+=== Reflektionsminimierung
+TODO: BILD
+
+Durch die Einstrahlung der Sonne auf die Strecke können innerhalb des Kamerabildes Bereiche entstehen, die sehr hell sind (nah einer Intensität von 255). Diese können von der Liniendetektion falsch als Linienkandidaten klassifiziert werden. Es wird eine Methode vorgeschlagen, mit der Lichtreflektionen stark minimiert werden können (TODO BILD).
+
+Um dem entgegenzuwirken, wird der Canny Algorithmus mit dem LSD (TODO ref hinzufügen), um Linienkandidaten zu gewinnen. Diese werden dann gefiltert und fusioniert (siehe @lin-detect-pip und @lin-proc-pipe). Nun gibt es eine Menge $L$ an Linienkandidaten, die in ihrer Allgemeinheit zufriedenstellend für eine Detektion wären, aber durch Reflektionen im Bild auch zu falschen Detektionen führen könnten.
+
+Die Koordinaten der Elemente aus $L$ werden nun zu Pixelindizes umgerechnet, um eine Pixelmaske zu erhalten, welche zur Analyse von Intensitätswerten genutzt werden kann. Es wird nun über die relevanten Pixel in der Maske iteriert und diese zu einer Liste hinzugefügt. Daraufhin wird das 90. Perzentil dieser Liste an Intensitätswerten als Fixpunkt $p$ angenommen. Nun werden analog zu @white-calc alle Pixel Sigmoid-basiert um diesen Threshold normalisiert. Stark hellere als auch stark dunklere Pixel werden stark verdunkelt und Pixelwerte, die in der Nähe von $p$ sind, werden verstärkt. Es ergibt sich ein optimiertes Bild, in dem Reflektionen unterdrückt und tatsächliche Linien verstärkt werden.
+=== Kontrastoptimierung mit CLAHE
+
+Nachdem Reflektionen im Bild minimiert wurden, liegt ein Bild vor, welches gegenüber dem Rohbild zu signifikant geringeren Falschdetektionen führt. Nun soll zusätzlich sichergestellt werden, dass der Kontrast des Bildes jederzeit normalisiert ist. Das ist wichtig, da Weißwertberechnungen (siehe @white-calc) in einem regelbasierten Detektionssystem nach festen Schwellenwerten arbeiten, die nicht zwischen Frames stark schwanken sollen.
+
+Zu diesem Zweck wird eine CLAHE-Transformation (Contrast Limited Adaptive Histogram Equalization) angewendet. CLAHE ist eine lokale Kontrasterhöhungsmethode, die das Bild in kleinere Kacheln unterteilt und die Histogrammausgleichung auf jede Kachel einzeln anwendet. Der `clipLimit`-Parameter (hier 2.0) begrenzt die Kontrasterhöhung, um eine Überamplifizierung von Rauschen zu vermeiden. CLAHE ist robuster als globale Kontrasterhöhung, da sie lokale Lichtvariationen korrekt ausgleicht. Dies führt dazu, dass die Bildvorverarbeitung auch unter variierenden Lichtverhältnissen konsistente Ergebnisse liefert @clahe. 
 
 == Kantenerkennung
 Ziel des ersten Entwicklungsinkrements ist das Extrahieren von Linien aus dem Rohbild. Dafür werden verschiedene Methodiken betrachtet, mit denen aus dem Rohbild eine Menge an Linien extrahiert werden kann, die dann in weiteren Schritten zum Bestimmen der Ego- und Opp-Haltelinien genutzt werden können.
@@ -570,7 +586,7 @@ Das gefüllte Akkumulator-Array nach der Verarbeitung könnte beispielsweise wie
 
 Die rot markierte Zelle mit dem Wert 3 zeigt das Maximum im Akkumulator-Array, das von drei kollinearen Kantenpunkten erzeugt wird. Diese drei Votes entstehen durch die vertikale, horizontale und diagonale Ausrichtung der Kantenpunkte. Das detektierte Maximum $(rho_0, theta_0)$ wird als Parameterpaar für eine erkannte Linie verwendet. Nach der Verarbeitung aller Kantenpunkte können weitere Maxima ermittelt und damit mehrere Linien im Bild lokalisiert werden @hough.
 
-=== Pipeline für die Linienerkennung
+=== Pipeline für die Linienerkennung <lin-detect-pip>
 Es wurden nun zwei Algorithmen zur Erkennung von Linien in einem Bild vorgestellt.
 
 Durch praktische Tests hat sich der LSD Algorithmus dabei als die optimale Lösung für die Kreuzungserkennung erweisen, da dieser Algorithmus ohne weiteres Tuning von Parametern sehr zufriedenstellend funktioniert. Außerdem ist zu nennen, dass der LSD mit einer Zeitkomplexität von O(n) deutlich effizienter funktioniert, als die Hough Transformation @meng2024review (S.27). Somit wird für die Liniendetektion der Kreuzungserkennung der Canny Algorithmus mit nachgeschaltetem LSD Algorithmus gewählt.
@@ -703,7 +719,7 @@ Um einen weiteren Filter zu konzipieren, der die Menge an Linien, die zur Detekt
 
 Der Winkelfilter iteriert über eine Menge an Linien und berechnet durch den Winkel des Differnenzvektors des Start- und Endpunkts der Linie die Ausrichtung eben dieser. Dieser Winkel wird nun normalisiert und daraufhin getestet, ob dieser innerhalb einer Toleranz um 90 Grad bzw. 0 Grad liegt. Die Linien werden als zwei Listen `horiz` und `vert` zurückgegeben.
 
-=== Pipeline für die Linienvorverarbeitung
+=== Pipeline für die Linienvorverarbeitung <lin-proc-pipe>
 
 Die Linienvorverarbeitung folgt einer festen Pipeline mit vier Filterschritten. Diese werden nacheinander auf die erkannten Linien angewendet, um die Menge an irrelevanten oder fehlerhaften Linien zu reduzieren:
 
@@ -954,7 +970,7 @@ Nun wird das Zentrum der ursprünglichen Linie in deas rotierte Bild transformie
 
 Jetzt wird der Ausschnitt um die Linie aus dem rotierten Bild ausgeschnitten. Der Ausschnitt wird so ausgeschnitten, dass sowohl zu den Seiten als auch oben und unterhalb der Linie Abstand besteht. (TODO BILD einfügen)
 
-=== Weißwertberechnung
+=== Weißwertberechnung <white-calc>
 Es ist unabdinglich, in verschiedenen Lichtverhältnissen zuverlässig den Weißwert der Linie berechnen zu können. Die Annahme ist, dass neben den weißen Pixeln des Ausschnitts auch graue oder nahezu weiße Pixel um den Linienabschnitt selbst liegen können. Dies kann etwa durch Sonneneinstrahlung passieren.
 
 Um dem entgegenzuwirken, wird der Ausschnitt vorverarbeitet. Um das Bild unabhängig von Lichtverhältnissen nutzbar zu machen, müssen graue bis weiße Bildbereiche, die aber nicht zur Linie gehören, unterdrückt werden. Dafür wird zuerst der `Canny`-Algorithmus verwendet, um Pixel zu finden, die tatsächlich zur Linie gehören könnten. Daraus wird eine Pixelmaske generiert, die anschließend genutzt wird, um die originalen Pixelwerte der Pixel aus dem Bildabschnitt auszulesen. Es wird der Median dieser Pixelwerte gebildet. Falls der Canny-Algorithmus kein Ergebnis geliefert hat, wird der Median des ganzen Ausschnitts berechnet.
@@ -1221,7 +1237,7 @@ In der Vorhersagephase wird der nächste Zustand basierend auf einem Systemmodel
 
 Für die Kreuzungserkennung kann der Kalman-Filter verwendet werden, um die erkannten Haltelinien über mehrere Frames hinweg zu glätten. Wenn eine Haltelinie in einem Frame nicht erkannt wird, behält der Filter eine Vorhersage basierend auf den vorherigen Frames bei, statt sofort das Ergebnis zu ändern. Dies führt zu robusteren Erkennungsergebnissen.
 
-==== Bufferbasierter Aggregator
+==== Bufferbasierter Aggregator <buffaggregation>
 
 Im vorliegenden System wird statt eines klassischen Kalman-Filters ein bufferbasiertes Aggregatorsystem verwendet. Dieses System verwaltet für jede Haltelinienart (Ego, Opp, Stop-Links, Stop-Rechts) einen Konfidenzpuffer im Bereich von 0.0 bis 1.0. Diese Buffer dienen als "Gedächtnis" des Systems über mehrere Frames hinweg.
 
@@ -1251,7 +1267,213 @@ TODO: BILD einfügen
 
 TODO: pipeline diagramm einfügen
 = Evaluation
+Zur Validierung des Systems werden Aufnahmesequenzen von Testfahrten des Fahrzeugs genutzt. Diese werden durch den Kreuzungsdetektor ausgewertet und danach gegen Referenzdaten ("Ground Truth") verglichen.
 
+== Labeling der Daten
+Zum Labeling der Daten, also dem Erstellen von Referenzdaten zum Vergleich mit den tatsächlichen Detektionen des Kreuzungsdetektors wird ein selbst erstelltes Python Skript verwendet, in welchem mit Tkinter eine Benutzeroberfläche entwickelt wurde (siehe @labelingtool).
+#figure(
+  caption: "Python Tkinter Labeling Tool (Autor)",
+  image(
+    "assets/labelingtool.png", width: 70%,
+  )
+) <labelingtool>
+Innerhalb dieser Benutzeroberfläche ist es möglich, einen Ordner mit Prädiktionsbildern des Detektors auszuwählen. Diese enthalten das zu dem Zeitpunkt gehörige Kamerabild und die aktuelle Detektion des Detektors visualisiert innerhalb des roten Quadrats in der oberen rechten Ecke des Bildes. Ferner kann ausgewählt werden, ob die Prädiktion korrekt ist und welche Ground-Truth diesem Bild zugrunde liegt. Das Ergebnis wird dann in einer CSV-Datei mit den Spalten: (1) Bildpfad, (2) Korrektheit der Prädiktion und (3) der Ground-Truth gespeichert. Im Allgemeinen wird für eine Darstellung einer Kreuzung ein Stringdarstellung der aktuellen Haltelinienkonfigurationen benutzt, die in @buffaggregation beschrieben ist. Eine beispielhafte Konfiguration könnte somit `es-os-ln-rn` sein, welche eine Kreuzung mit durchgezogener Ego- und Opplinie und fehlenden Haltelinien rechts und links bezeichnet.
+
+Die erstellte CSV-Datei wird nach dem Labelingprozess zur Berechnung von Kernmetriken benutzt, welche im Folgenden beschrieben werden.
+== Metriken
+=== Primäre Performance-Metriken
+==== Gesamtgenauigkeit (Global Accuracy)
+Die Globale Accuracy gibt an, wieviele Frames des gesamten Datensatzes vom System korrekt erkannt wurden. Sie wird folglich mit dieser Formel berechnet:
+#figure(
+  caption: "Berechnungsvorschrift Global Accuracy",
+  $"Accuracy" = frac("Anzahl korrekter klass. Frames", "Gesamtanzahl N der Frames")$
+) <global-accuracy>
+==== Klassenspezifische Genauigkeit
+Nun wird die Genauigkeit auf alle einzelnen Klassentypen heruntergebrochen (also beispielsweise nur `en-on-ln-rn`, also keine Kreuzung, oder `es-on-ln-rn`). Wird nun eine Klassengenauigkeit $p$ für eine bestimmte Klasse $K$ erzielt, heißt es, dass das System den Anteil $p$ der Frames, die die Ground-Truth der Klasse $K$ haben, richtig klassifiziert hat.
+=== Verteilungsmetriken
+Diese Metrik zeigt an, wie die einzelnen Klassen in dem jeweiligen Datensatz verteilt sind, also wie gut der Datensatz ausbalanciert ist. Wird nun als Testdatensatz eine gesamte Fahrt mit Streckenabschnitten ohne Kreuzungen gewählt, überwiegt die Anzahl an Frames, bei denen keine tatsächlich relevanten Streckenabschnitte vorkommen.
+=== Qualitative Fehlermetriken
+Am Ende werden die aufgetretenen Fehler (die fehlgeschlagenen Frames) qualitativ in zwei Kategorien unterteilt. Diese sind einmal `False Positives`, also die Anzahl an Frames, an denen das System fälschlicherweise etwas erkannt hat (Geisterlinien). Zum anderen sind das `False Negatives`, also Linien, die das System nicht klassifiziert hat oder wo es falsch klassifiziert hat.
+
+== Vollständige Fahrt mit striktem Labeling
+Um den Detektor auf einem allgemeinen Datensatz zu testen, wird eine Fahrt genutzt, die neben Anfahrten von Kreuzungen auch das Durchfahren von Streckenabschnitten ohne Kreuzungen enthält. Dazu ist zu sagen, dass eine solche Situation für die CauDri Challenge von keiner Bedeutung ist, da der Detektor erst bei Detektion eines Kreuzungsschildes eingeschalten wird. Für einen ersten Überblick über die Leistung des Detektors wird eine solche Sequenz trotzdem herangezogen. Die Testfahrt wird mit $N = 286$ Frames abgebildet und enthält mehrere Kreuzungstypen sowie Abschnitte ohne Kreuzungen.
+
+Zuerst werden die Klassifikationen des System strikt nach korrekt und falsch bewertet. Das ist für einen allgemeinen Überblick sinnvoll, ist aber im Kontext der realen Fahrsituation im Gesamten keine ausschlaggebende Bewertung. So kommt es beispielsweise nach einer erfolgreichen Detektion einer Haltelinie zu Flackern danach. Das Fahrzeug wird aber bei erfolgreicher Detektion zum Halt kommen. Somit sind mögliche flackernde Frames keine tatsächliche Störungsquelle für das Fahrzeug.
+
+=== Evaluation der Kreuzungserkennung (Baseline)
+
+#v(0.5em)
+
+// Metadaten als kleine Info-Boxen
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 1cm,
+  block(
+    fill: rgb("f0f4f8"),
+    inset: 8pt,
+    radius: 4pt,
+    width: 100%,
+    [#strong("Analysierte Datensätze ($N$):") #h(1fr) 286]
+  ),
+  block(
+    fill: rgb("e8f5e9"),
+    inset: 8pt,
+    radius: 4pt,
+    width: 100%,
+    [#strong("Globale Accuracy:") #h(1fr) #strong("81,12 %")]
+  )
+)
+
+#v(1em)
+
+// Haupttabelle
+#table(
+  columns: (2.5fr, 1fr, 1fr, 1fr),
+  align: (left, center, center, center),
+  stroke: (x, y) => if y == 0 { (bottom: 1.5pt + black) } else { (bottom: 0.5pt + rgb("e0e0e0")) },
+  fill: (col, row) => if row == 0 { rgb("f5f5f5") } else { none },
+  
+  // Header
+  table.header(
+    [*Kreuzungstyp (Ground Truth)*], [*Anzahl*], [*Verteilung*], [*Accuracy*]
+  ),
+
+  // Datenzeilen
+  [`NO_LINE`], [205], [71,7 %], [85,4 %],
+  [`en-os-ln-rn`], [13], [4,5 %], [69,2 %],
+  [`en-on-ls-rs`], [12], [4,2 %], [100,0 %],
+  [`es-on-ln-rn`], [11], [3,8 %], [54,5 %],
+  [`es-os-ln-rn`], [11], [3,8 %], [81,8 %],
+  [`en-on-ln-rd`], [10], [3,5 %], [90,0 %],
+  [`en-od-ln-rn`], [10], [3,5 %], [60,0 %],
+  [`ed-on-ln-rn`], [6], [2,1 %], [50,0 %],
+  [`ed-od-ln-rn`], [5], [1,7 %], [20,0 %],
+  [`en-on-ld-rd`], [3], [1,0 %], [66,7 %],
+)
+
+#v(1.5em)
+
+// Qualitative Fehlerverteilung
+#block(
+  width: 100%,
+  stroke: 0.5pt + rgb("d32f2f"),
+  inset: 10pt,
+  radius: 4pt,
+  fill: rgb("fdeaea"),
+  [
+    #text(weight: "bold", fill: rgb("d32f2f"))[Qualitative Fehlerverteilung (54 fehlgeschlagene Frames):]
+    #v(0.5em)
+    #list(
+      [#strong("False Positives") (Geisterlinien bei `NO_LINE`): 30 / 54 #h(1fr) #strong("55,6 %")],
+      [#strong("Verpasste Linien / Falsche Typen") (bei Linien): 24 / 54 #h(1fr) #strong("44,4 %")]
+    )
+  ]
+)
+
+=== Auswertung und Diskussion 
+Die quantitative Analyse der aktuellen Konfiguration über die gesamte Teststrecke liefert eine globale Genauigkeit (Accuracy) von 81,12 %. Um diese Leistung korrekt einzuordnen, müssen die topologischen Eigenschaften der Teststrecke sowie die gewählte Evaluationsmetrik berücksichtigt werden.
+==== Streckentopologie und Klassenimbalance
+Die Teststrecke umfasst Fahrszenarien, zu denen definitionsgemäß auch längere Abschnitte ohne Kreuzungen gehören, in denen lediglich die Standard-Fahrspuren existieren. Dies spiegelt sich drastisch in den Testdaten wider: Die Klasse `NO_LINE` bildet mit 205 von 286 Frames (71,7 %) die signifikante Mehrheit des Datensatzes.
+
+Mit einer klassenspezifischen Accuracy von 85,4 % zeigt das System auf diesen reinen Spurabschnitten eine solide Basisstabilität. Dennoch entfallen aufgrund der massiven Klassendimbalance absolut gesehen die meisten Fehler auf diese Kategorie: 30 der insgesamt 54 Fehlklassifikationen (55,6 %) sind sogenannte `False Positives` innerhalb der `NO_LINE`-Klasse. Das System neigt hier dazu, fälschlicherweise Linienstrukturen (sogenannte „Geisterlinien“) zu detektieren, wo keine Kreuzung existiert.
+
+==== Striktes Labeling
+Bei der Interpretation der Ergebnisse ist die methodische Strenge der Evaluierung zu betonen. Es wurde ein striktes Labeling-Verfahren angewendet, bei dem jede Form von zeitlichem oder strukturellem „Flackern“ der Detektion (z. B. das kurzzeitige Verlieren einer Linie für nur einen einzelnen Frame) unmittelbar als vollständiger Fehler gewertet wurde.
+
+Dieses Vorgehen erklärt das verhältnismäßig schlechte Abschneiden bei komplexeren Kreuzungstypen:
+
+Der Typ ed-od-ln-rn (durchgezogene/gestrichelte Kombinationen) erreicht lediglich eine Accuracy von 20,0 % (5 Frames).
+
+Der Typ ed-on-ln-rn bricht auf 50,0 % ein.
+
+In realen Szenarien handelt es sich hierbei oft nicht um einen Totalausfall des Algorithmus, sondern um minimale Instabilitäten bei der Kantenzuordnung von Frame zu Frame. In der Challenge-Situation würde das Fahrzeug auf eine erfolgreiche Detektion reagieren und zum Halt kommen, auch wenn nach der Detektion die Erkennung des Systems leicht flackern würde. 
+== Vollständige Fahrt mit First Contact Labeling
+Um die vorige Bewertung realer zu gestalten, wird im Folgenden die Konfiguration so gewählt, dass ein einmaliges Erkennen der Ego-Linie (First-Contact) als valide Klassifikation gewertet wird. Das hat aus Sicht der CauDri-Challenge eine größere Aussagekraft, da das Fahrzeug bei erstmaliger Erkennung der Ego-Linie zum Halt kommt und sich dann die im Stehen die Erkennung aller anderen Linien verbessert. Hier wird nun nach erfolgreicher Erkennung der Ego-Linie und der erfolgreichen Erkennung der Kreuzung die gesamte Kreuzung als erkannt gewertet, auch wenn es in darauffolgenden Frames zu Flackern kommt.
+=== Evaluation der Kreuzungserkennung (First Contact)
+
+#v(0.5em)
+
+// Metadaten als kleine Info-Boxen
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 1cm,
+  block(
+    fill: rgb("f0f4f8"),
+    inset: 8pt,
+    radius: 4pt,
+    width: 100%,
+    [#strong("Analysierte Datensätze ($N$):") #h(1fr) 286]
+  ),
+  block(
+    fill: rgb("e8f5e9"),
+    inset: 8pt,
+    radius: 4pt,
+    width: 100%,
+    [#strong("Globale Accuracy:") #h(1fr) #strong("87,06 %")]
+  )
+)
+
+#v(1em)
+
+// Haupttabelle
+#table(
+  columns: (2.5fr, 1fr, 1fr, 1fr),
+  align: (left, center, center, center),
+  stroke: (x, y) => if y == 0 { (bottom: 1.5pt + black) } else { (bottom: 0.5pt + rgb("e0e0e0")) },
+  fill: (col, row) => if row == 0 { rgb("f5f5f5") } else { none },
+  
+  // Header
+  table.header(
+    [*Kreuzungstyp (Ground Truth)*], [*Anzahl*], [*Verteilung*], [*Accuracy*]
+  ),
+
+  // Datenzeilen
+  [`NO_LINE`], [209], [73,1 %], [86,1 %],
+  [`en-on-ls-rs`], [15], [5,2 %], [100,0 %],
+  [`es-on-ln-rn`], [12], [4,2 %], [66,7 %],
+  [`ed-od-ln-rn`], [12], [4,2 %], [100,0 %],
+  [`es-os-ln-rn`], [11], [3,8 %], [100,0 %],
+  [`en-on-ln-rd`], [8], [2,8 %], [100,0 %],
+  [`ed-on-ln-rn`], [8], [2,8 %], [87,5 %],
+  [`en-on-ld-rd`], [5], [1,7 %], [60,0 %],
+  [`en-os-ln-rn`], [4], [1,4 %], [100,0 %],
+  [`en-on-ln-rs`], [2], [0,7 %], [50,0 %],
+)
+
+#v(1.5em)
+
+// Qualitative Fehlerverteilung
+#block(
+  width: 100%,
+  stroke: 0.5pt + rgb("d32f2f"),
+  inset: 10pt,
+  radius: 4pt,
+  fill: rgb("fdeaea"),
+  [
+    #text(weight: "bold", fill: rgb("d32f2f"))[Qualitative Fehlerverteilung (37 fehlgeschlagene Frames):]
+    #v(0.5em)
+    #list(
+      [#strong("False Positives") (Geisterlinien bei `NO_LINE`): 29 / 37 #h(1fr) #strong("78,4 %")],
+      [#strong("Verpasste Linien / Falsche Typen") (bei Linien): 8 / 37 #h(1fr) #strong("21,6 %")]
+    )
+  ]
+)
+=== Auswertung der Evaluation First-Contact
+Die Konfiguration „first contact“ erzielt eine signifikante Performanzsteigerung und hebt die globale Genauigkeit auf 87,06 % (+5,94 Prozentpunkte im Vergleich zur Baseline). Der entscheidende Durchbruch dieser Iteration liegt in der drastischen Reduktion von harten Klassifikationsfehlern bei tatsächlich existierenden Linien. Diese Fehlernatur sank von vormals 24 Frames auf lediglich 8 Frames (eine Reduktion um 66,7 %).
+
+Besonders deutlich wird dieser Fortschritt bei komplexen Typen wie ed-od-ln-rn, deren Erkennungsrate von kritischen 20,0 % auf perfekte 100,0 % angehoben werden konnte. Das System erweist sich damit unter realen Linienbedingungen als hocheffektiv und weitgehend resistent gegenüber dem zuvor bemängelten „Flackern“.
+
+Diese Resistenz wird unter anderem durch den bufferbasierten Aggregator bewerkstelligt, der Detektionen für mehrere Frames halten kann und damit Instabilitäten bei der Detektion eben dieser Kreuzungsarten (beispielsweise `en-on-ls-rs` oder `en-on-ld-rd`) ausgleichen. Gleichzeitig kann der Aggregator aber auch zu Fehlern führen, da dieser Klassifikationen zu lange im Buffer hält, auch wenn das Fahrzeug die bestimmte Fahrsituation schon durchfahren hat.
+== Einordnung der Evaluation in den Kontext der CauDri-Challenge
+Für die finale Bewertung des Systems ist die geplante Systemarchitektur im Realbetrieb von fundamentaler Bedeutung: Das Erkennungsmodul soll nicht permanent im Hintergrund laufen, sondern wird über die Erkennung von Kreuzungsschildern (Vorfahrt gewähren, Stop) gezielt erst kurz vor einer tatsächlichen Kreuzung aktiviert.
+
+Diese operationelle Randbedingung verändert die Interpretation der vorliegenden Metriken grundlegend, insbesondere mit Blick auf die verbleibenden Schwachstellen:
+
++ Relativierung der False Positives: In der qualitativen Fehleranalyse machen False Positives (Geisterlinien bei `NO_LINE`) mit 78,4 % den absoluten Großteil der verbleibenden 37 Fehler aus. Im permanenten Testbetrieb über die gesamte Strecke (inklusive kreuzungsfreier Abschnitte) wirkte sich diese Überempfindlichkeit stark negativ aus.
+
++ Effekt im Ziel-Szenario: Da das System im Realbetrieb auf reinen Spurenabschnitten (ohne Kreuzungsannäherung) überhaupt nicht aktiv ist, fällt ein Großteil der Streckenabschnitte, die diese 29 False-Positive-Frames erzeugt haben, prozessual weg. Die reale Fehlerquote im Betrieb wird somit nochmals deutlich geringer ausfallen als im synthetischen Gesamttest.
+
++ Fokus auf die Anfahrphase („First Contact“): Der Name der Konfiguration unterstreicht den Fokus auf den Moment der Annäherung. Dass Klassen wie en-on-ls-rs ($100\,\%$) oder ed-on-ln-rn ($87,5\,\%$) beim ersten Sichtkontakt hochpräzise klassifiziert werden, ist für die rechtzeitige Pfadplanung des Fahrzeugs kritisch. Ein kurzes Einschwingen oder eine minimale Fehlklassifikation im allerersten Frame des Sichtbereichs wird durch das späte Einschalten des Systems minimiert, da sich das Fahrzeug bereits in einer optimalen Geometrie zur Kreuzung befindet.
 = Fazit
 == Kritische Reflexion
 Innerhalb der Arbeit wurde ein robustes System zur Klassifikation von Kreuzungen implementiert, welches für verschiedene Disziplinen innerhalb der CauDri-Challenge genutzt werden kann.
@@ -1274,7 +1496,6 @@ Wie bereits beschrieben, besteht das System aus vielschichtigen Pipelines, die v
 == Ausblick
 === Erweiterungspotenzial 
 === Langfristige Perspektiven
-= Danksagung
 = Erläuterungen
 
 Im folgenden werden einige nützliche Elemente und Funktionen zum Erstellen von Typst-Dokumenten mit diesem Template erläutert.
@@ -1361,11 +1582,3 @@ Für Literaturverweise verwendet man die `cite`-Funktion oder die Kurzschreibwei
 - Mit `@iso18004` erhält man: @iso18004
 
 Tabellen, Abbildungen und andere Elemente können mit einem Label in spitzen Klammern gekennzeichnet werden (die Tabelle oben hat z.B. das Label `<table>`). Sie kann dann mit `@table` referenziert werden. Das ergibt im konkreten Fall: @table
-
-= Fazit
-
-#lorem(50)
-
-#lorem(120)
-
-#lorem(80)
