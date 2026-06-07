@@ -82,16 +82,20 @@ Das Modul gibt die gewonnen Informationen über die Kreuzung nach der Berechnung
 Das Modul wird als klassische Kreuzungserkennung implementiert und nutzt dabei keine Deep Learning Verfahren. Das hat einige Vorteile für das Deployment des Moduls auf dem Fahrzeug. Zum Einen sind Ergebnisse des Moduls einfach zu interpretieren, da die Berechnungen des Moduls vollständig regelbasiert getroffen und nicht durch ein Modell berechnet werden. Außerdem können Parameter wie etwa für Winkelfilter, Längenfilter und andere regelbasierte Systeme besser angepasst werden, um Ergebnisse zu optimieren. Dazu wäre für einen Deep Learning Ansatz ein aufbereiteter Datensatz mit sauberen Labels notwendig, was durch den klassischen Ansatz wegfällt.
 == Kreuzungen
 Um eine zuverlässige Kreuzungserkennung auf dem Fahrzeug zu implementieren werden zuerst die Kreuzungen betrachtet, die das System erkennen soll. Innerhalb der Caudri-Challenge gibt es eine Menge an Kreuzungen, die sich durch die Position der Haltelinien, der Art der Haltelinien und der Straßenführung innerhalb der Kreuzung unterscheiden. Diese sind dokumentiert.
-#grid(
-  columns: (1fr, 1fr, 1fr), // Zwei Spalten mit gleicher Breite
-  gutter: 5pt,        // Abstand zwischen den Bildern
-  image("./assets/crossings/crossing1.png"),
-  image("./assets/crossings/crossing2.png"),
-  image("./assets/crossings/crossing3.png"),
-  image("./assets/crossings/crossing4.png"),
-  image("./assets/crossings/crossing5.png"),
-  image("./assets/crossings/crossing6.png"),
-)
+#figure(
+caption: [Kreuzungen der CauDri-Challenge @caudri_regulations2026],
+  grid(
+    columns: (1fr, 1fr, 1fr), // Zwei Spalten mit gleicher Breite
+    gutter: 15pt,        // Abstand zwischen den Bildern
+    image("./assets/crossings/crossing1.png"),
+    image("./assets/crossings/crossing2.png"),
+    image("./assets/crossings/crossing3.png"),
+    image("./assets/crossings/crossing4.png"),
+    image("./assets/crossings/crossing5.png"),
+    image("./assets/crossings/crossing6.png"),
+  )
+) <intersections>
+
 Die zu erkennenden Kreuzungen sind folgendende:
 - Ego- und Gegenspur Haltelinien durchgezogen
 - Ego- und Gegenspur Haltelinie gestrichelt
@@ -100,7 +104,7 @@ Die zu erkennenden Kreuzungen sind folgendende:
 - Abknickende Vorfahrtsstraße links mit gestrichelten Haltelinien in der Ego- und Gegenspur
 - Abknickende Vorfahrtsstraße links mit durchgezogener Haltelinie in der Gegenspur und der rechten Spur
 
-Die zu erkennenden Kreuzungen sind standardisiert und sehen innerhalb der Strecke stets gleich aus.
+Die zu erkennenden Kreuzungen sind standardisiert und sehen innerhalb der Strecke stets gleich aus @caudri_regulations2026.
 
 = Stand der Technik
 In der Praxis sind Kreuzungserkennungen essenziell, um einen autonomen Betrieb eines Fahrzeugs zu ermöglichen. Um Kreuzungen klassifizieren zu können, muss das Fahrzeug in zuerst die Haltelinien erkennen, die zu der Kreuzung gehören. Das autonome Fahrzeug muss berechnen, wann und ob es an der Kreuzung halten soll und um welche Art der Kreuzung es sich handelt.
@@ -119,7 +123,8 @@ Dabei können die technischen Ansätze, um Haltelinien zu erkennen, in zwei Kate
 Innerhalb der CauDri-Challenge sind geometrische Eigenschaften der Linien genormt. Es ist aber zu erwarten, dass die Detektion der Linien durch Lichtreflektionen der Sonne erschwert wird.
 
 == Klassischer Ansatz
-Der klassische Ansatz einer Haltelinienerkennung umfasst regelbasierte Algorithmen, die in mehreren Schritten Kanten erkennen, klassifizieren und filtern. Dabei gilt die Transformation des Bildes in die Vogelperspektive (auch birds-eye-view oder BEV) durch `Inverse Perspective Mapping` als Standard @stopline1. Dabei werden perspektivische Verzerrungen im Bild rückgängig gemacht, sodass man die geometrischen Attribute der Linien und deren Beziehungen untereinander für eine Klassifikation nutzen kann. TODO: BILD? Wird ein klassisches Bild verwendet, können beispielsweise Winkelbeziehungen zwischen Linien nicht mehr verwendet werden. Auch die Winkelausrichtungen, die Längen und die Dicke der Linien selbst können inkonsistent sein.
+Der klassische Ansatz einer Haltelinienerkennung umfasst regelbasierte Algorithmen, die in mehreren Schritten Kanten erkennen, klassifizieren und filtern. Dabei gilt die Transformation des Bildes in die Vogelperspektive (auch birds-eye-view oder BEV) durch `Inverse Perspective Mapping` als Standard @stopline1. Dabei werden perspektivische Verzerrungen im Bild rückgängig gemacht, sodass man die geometrischen Attribute der Linien und deren Beziehungen untereinander für eine Klassifikation nutzen kann (@img:frontbev). 
+Wird ein klassisches Bild verwendet, können beispielsweise Winkelbeziehungen zwischen Linien nicht mehr verwendet werden. Auch die Winkelausrichtungen, die Längen und die Dicke der Linien selbst können inkonsistent sein.
 
 Viele klassische Ansätze verwenden nun Algorithmen zur Kantenerkennung, die auf der Berechnung von Intensitätsunterscheiden zwischen Pixeln aufbauen @stopline1. Diese werden innerhalb einer Region Of Interest (ROI) erkannt. Aus dem gewonnenen Graustufenbild werden nun Linien erkannt. Dafür werden in der Regel Algorithmen wie die Hough-Transformation verwendet @Aly @stopline1. Es können folgend Farbwerte, Dicke, Länge und anderen geometrische Eigenschaften der Linien und deren geometrischen Beziehung untereinander (beispielsweise Schnittwinkel) genutzt werden, um Haltelinien zu klassifizieren @stopline1. 
 
@@ -142,11 +147,21 @@ Die Implementierung des klassischen Ansatzes ist ferner aufgabenbedingt, ist abe
 = Technischer Kontext
 Im folgenden Kapitel wird die Rahmenarchitektur des Fahrzeugs sowie der Software im Detail erläutert und der zu implementierende Detektor als Modul in diesem Gesamtsystem erklärt. 
 == Das Fahrzeug
-Bei dem Fahrzeug des DHBW SmartRollerz Teams der DHBW, bei dem das Kreuzungserkennungsmodul installiert werden soll, handelt es sich um ein vom Team selbst modelliertes RC-Fahrzeug.
+Bei dem Fahrzeug des DHBW SmartRollerz Teams der DHBW, bei dem das Kreuzungserkennungsmodul installiert werden soll, handelt es sich um ein vom Team selbst modelliertes RC-Fahrzeug (siehe @rcmodel).
+#figure(
+  caption: "Modell SmartyV6 Fahrzeug (Smartrollerz)",
+  grid(
+    align: horizon,
+    columns: (1fr, 1fr),
+    column-gutter: 15pt,
+    image("assets/smarty/Smart V6.png", height: 20%),
+    image("assets/smarty/Smarty Chassis.png"),
+  )
+) <rcmodel>
 === Karosserie
-Bei der Karosserie des Fahrzeugs handelt es sich um ein vom entsprechenden Team entworfenes Modell, welches mit einem 3D-Drucker gefertigt wird. Die Karosserie dient in erster Linie zum Schutz der Elektronik des Fahrzeugs. Herrausforderungen beim Entwurf der Karosserie sind es, den Anforderungen anderer Schnittstellenteams zu genügen und dabei eine Balance aus Praktikabilität, Leistung und dem Erfüllen der CauDri-Regeln zu finden @dhbwSmartRollerzTechnik.
+Bei der Karosserie des Fahrzeugs handelt es sich um ein vom entsprechenden Team entworfenes Modell, welches mit einem 3D-Drucker gefertigt wird (siehe @rcmodel). Die Karosserie dient in erster Linie zum Schutz der Elektronik des Fahrzeugs. Herausforderungen beim Entwurf der Karosserie sind es, den Anforderungen anderer Schnittstellenteams zu genügen und dabei eine Balance aus Praktikabilität, Leistung und dem Erfüllen der CauDri-Regeln zu finden @dhbwSmartRollerzTechnik.
 === Kamera
-Damit das Fahrzeug die eigene Umgebung wahrnehmen kann, ist eine Kamera mit Fischaugenlinse verbaut, um ein maximal mögliches Sichtfeld zu gewährleisten. Diese liefert das Bild für alle Perceptionmodule, die in @stack näher erläutert werden.
+Damit das Fahrzeug die eigene Umgebung wahrnehmen kann, ist eine Kamera mit Fischaugenlinse verbaut (siehe @rcmodel), um ein maximal mögliches Sichtfeld zu gewährleisten. Diese liefert das Bild für alle Perceptionmodule, die in @stack näher erläutert werden.
 === NUC
 Die NUC (Next Unit of Computing) ist ein kleiner PC, der es erlaubt, durch eigene Erweiterungen eine Recheneinheit für den Gebrauch in spezifischen Anwendungsfällen, wie etwa dem RC-Fahrzeug. Auf der NUC laufen alle relevanten Softwaremodule des Fahrzeugs.
 == Modulübersicht <stack>
@@ -259,12 +274,12 @@ Das Kreuzungserkennungsmodul arbeitet in Zusammenarbeit mit anderen Nodes. Um da
 Um aus einem Rohbild aus der `camera_preprocessing` Node Informationen zu gewinnen, wird das Rohbild innerhalb einer Pipeline verarbeitet. Innerhalb der Pipeline sind mehrere Designentscheidungen zu treffen, um ein bestmögliches Ergebnis zu erzielen.
 Der Entwicklungsprozess wird in Iterationen durchgeführt, nach der jeder das Ergebnis der Pipeline evaluiert und getestet wird. 
 == Bildvorverarbeitung
-Das Rohbild der `camera_preprocessing` Node entspringt einer Kamera, die auf einem Gestell hinten am Fahrzeug angebracht ist. Dieses liefert ein schwarz-weiß Bild, welches dieses Modul nutzt, um Kreuzungen zu klassifizieren.
+Das Rohbild der `camera_preprocessing` Node entspringt einer Kamera, die auf einem Gestell hinten am Fahrzeug angebracht ist. Dieses liefert ein schwarz-weiß Bild, welches dieses Modul nutzt, um Kreuzungen zu klassifizieren ().
 
 Es stellt sich während der Entwicklung heraus, dass es von Vorteil ist, das Bild in einigen Schritten zu verarbeiten, bevor es von der Systempipeline verarbeitet wird. Die Vorverarbeitungspipeline wurde durch Testen mit Bilddaten erarbeitet, wird aber auch durch andere Umsetzungen aus der Literatur gestützt, wie bei Tsai et al. @preprocessing1.
 
 === Bildperspektive
-Bevor die allgemeine Vorverarbeitungspipeline erklärt wird, muss entschieden werden, ob für das Modul eine Frontalansicht der Kamera oder die Vogelperspektive gewählt wird, die eine perspektivische Verzerrung der Frontalansicht ist. TODO: Bilder einfügen
+Bevor die allgemeine Vorverarbeitungspipeline erklärt wird, muss entschieden werden, ob für das Modul eine Frontalansicht der Kamera oder die Vogelperspektive gewählt wird, die eine perspektivische Verzerrung der Frontalansicht ist (siehe @img:frontbev). 
 Allgemein haben sowohl die Frontalansicht, als auch die Vogelperspektive (auch `BEV` für `Birds Eye View`) Vorteile und Nachteile, die im Folgenden aufgeführt werden. Diese gehen auch Tests während der Entwicklung hervor.
 
 #table(
@@ -283,13 +298,21 @@ Während der Entwicklung müssen nun diese Kriterien betrachtet und abgewogen we
 + Schärfe
 + Sichtfeld
 
+#figure(
+  caption: "Normalansicht Kamera und Vogelperspektive (Autor)",
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 15pt,
+    image("assets/bev_frontal/frontal.png", width: 90%),
+    image("assets/bev_frontal/bev.png", width: 90%),
+  )
+) <img:frontbev>
+
 Während der Entwicklung hat es sich als Schwierigkeit herausgestellt, dass die Frontalansicht einen weiten Blick über die Straße hat. Zwar könnte es von Vorteil sein, um die Kreuzung früher zu erkennen, aber tatsächlich ist der Großteil der Weite, die die Frontalansicht liefert, für die Kreuzungserkennung von keiner Relevanz. Negativ ins Gewicht fällt dabei auch, dass der Kreuzungsbereich im vorderen Bildbereich stark gestaucht ist und dadurch alle Haltelinien sowie der gesamte Kreuzungsbereich in einem kleinen Bereich der ROI zusammenkommen.
 
 Außerdem ist die perspektivische Verzerrung der Frontalansicht ein Nachteil bei der Erkennung von Haltelinien, da Linien nicht mehr orthogonal im Bild erscheinen, sondern in Richtung eines Fluchtpunktes. Das ist vor allem für Winkelberechnungen unvorteilhaft.
 
 Ein Nachteil der Vogelperspektive ist die Unschärfe im oberen Teil des Bildes, die durch die Transformation zustandekommt. Dadurch kann es schwer sein, Linien zu erkennen, da diese stark verzerrt sind. Das ist aber durch eine Vorverarbeitungspipeline zu beheben, weswegen für das Modul die Vogelperspektive als Bildperspektive gewählt wird.
-
-TODO: Trafo in BEV erklären?
 
 === Bildentzerrung
 Durch die Transformation in die Vogelperspektive sind in den oberen Bereichen des Rohbildes starke Verzerrungen, sodass die Linienerkennung die gegenüberliegende Haltelinie nicht erkennen kann.
@@ -324,8 +347,6 @@ Das Bild wird nun mit diesem Kernel gefaltet. Hierbei ist der Wert jedes neuen P
 
 Innerhalb des Moduls kann die in `OpenCV` vorhande Funktion `cv2.GaussianBlur(img, (5, 5))` verwendet werden.
 
-TODO HIER BILD EINFÜGEN AUS DER PIPELINE
-
 Der Gauss-Filter ist nützlich, um Rauschen aus dem Bild zu entfernen und damit auch verzerrte Stellen des Bildes weicher zu machen, sodass die Linienerkennung trotz Verzerrung durch die BEV gute Ergebnisse liefert. Ein Problem des Gauss-Filters ist aber, dass er sowohl Verzerrungen, als auch bereits klare Kanten weicher macht. Das führt zu schlechteren Ergebnissen bei bereits klaren Kanten.
 
 ==== Bilateraler Filter
@@ -339,9 +360,12 @@ Der bilaterale Filter weist im Vergleich zum Gauss-Filter aber höhere Rechenkos
 
 Der Median-Blur arbeitet ähnlich zu den andern Filtern. Dabei wird aber kein Gauss-Kernel erzeugt, sondern alle Pixelwerte innerhalb der Kernelfläche in aufsteigender Reihenfolge sortiert und das mittlere Element (der Median) als neuer Wert des betrachteten Pixels gesetzt. Dies macht den Filter besonders effektiv bei der Reduktion von Salz- und Pfeffer-Rauschen (engl. `Salt-and-Pepper` Noise), da extreme Ausreißer durch den Median-Wert ersetzt werden.
 
-Auch der Median-Blur hat einen hohen Rechenaufwand, wird aber in Kombination mit dem bilateralen Filter genutzt, um zusätzlich `Salt-and-Pepper` Rauschen aus dem Bild zu entfernen. Auch dieses kann durch die Transformation in BEV erzeugt werden.
+Auch der Median-Blur hat einen hohen Rechenaufwand, wird aber in Kombination mit dem bilateralen Filter genutzt, um zusätzlich `Salt-and-Pepper` Rauschen aus dem Bild zu entfernen. Auch dieses kann durch die Transformation in BEV erzeugt werden @Beyerer2024.
 
-TODO QUELLE UND BILDER, CODE EINFÜGEN
+#figure(
+  caption: [Medianfilter Beispiel @Beyerer2024],
+  image("assets/median.png", width: 70%)
+)
 
 === Morphologisches Öffnen und Schließen
 
@@ -351,22 +375,57 @@ Das morphologische Schließen (engl. Closing) ist eine Kombination aus einer Dil
 
 Das morphologische Öffnen (engl. Opening) arbeitet gegensätzlich: Erosion gefolgt von Dilatation. Die Erosion entfernt kleine helle Objekte und verkleinert größere Objekte, während die Dilatation danach wieder vergrößert. Das Öffnen ist effektiv zur Entfernung von Rausch-Objekten oder unerwünschten kleinen Strukturen, ohne größere Linienstrukturen zu zerstören @Soille2004.
 
-In der Kreuzungserkennung wird diese Kombination verwendet, um das nach der Canny-Kantenerkennung erhaltene Binärbild zu bereinigen. Das Öffnen entfernt kleine Rausch-Artefakte, während das Schließen unterbrochene Linien wieder verbindet. Dies führt zu einer robusteren Vorbereitung der Bilder für die nachfolgende Linienerkennung.
+#figure(
+  caption: [Morphologisches Öffnen und Schließen; (a) Originalmenge G und strukturie-
+rendes Element S; (b) Ergebnis der Erosion von G durch S; (c) Ergebnis der Dilation von G durch S. @Beyerer2024],
+  image("assets/morphdil.png", width: 70%)
+)
+
+In der Kreuzungserkennung wird diese Kombination verwendet, um das nach der Canny-Kantenerkennung erhaltene Binärbild zu bereinigen. Das Öffnen entfernt kleine Rausch-Artefakte, während das Schließen unterbrochene Linien wieder verbindet. Dies führt zu einer robusteren Vorbereitung der Bilder für die nachfolgende Linienerkennung (siehe @pp-dilation).
+
+#figure(
+  caption: "Originalbild links und Bild nach Filtern, Öffnung/Schließung und finaler Dilation (Autor)",
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 10pt,
+    image("assets/prepr_pipeline/system/1780853403_01_input_original.png", width: 85%),
+    image("assets/prepr_pipeline/system/1780853403_06_dilation.png", width: 85%)
+  )
+) <pp-dilation>
 
 === Reflektionsminimierung
-TODO: BILD
-
 Durch die Einstrahlung der Sonne auf die Strecke können innerhalb des Kamerabildes Bereiche entstehen, die sehr hell sind (nah einer Intensität von 255). Diese können von der Liniendetektion falsch als Linienkandidaten klassifiziert werden. Es wird eine Methode vorgeschlagen, mit der Lichtreflektionen stark minimiert werden können (TODO BILD).
 
 Um dem entgegenzuwirken, wird der Canny Algorithmus mit dem LSD (TODO ref hinzufügen), um Linienkandidaten zu gewinnen. Diese werden dann gefiltert und fusioniert (siehe @lin-detect-pip und @lin-proc-pipe). Nun gibt es eine Menge $L$ an Linienkandidaten, die in ihrer Allgemeinheit zufriedenstellend für eine Detektion wären, aber durch Reflektionen im Bild auch zu falschen Detektionen führen könnten.
 
 Die Koordinaten der Elemente aus $L$ werden nun zu Pixelindizes umgerechnet, um eine Pixelmaske zu erhalten, welche zur Analyse von Intensitätswerten genutzt werden kann. Es wird nun über die relevanten Pixel in der Maske iteriert und diese zu einer Liste hinzugefügt. Daraufhin wird das 90. Perzentil dieser Liste an Intensitätswerten als Fixpunkt $p$ angenommen. Nun werden analog zu @white-calc alle Pixel Sigmoid-basiert um diesen Threshold normalisiert. Stark hellere als auch stark dunklere Pixel werden stark verdunkelt und Pixelwerte, die in der Nähe von $p$ sind, werden verstärkt. Es ergibt sich ein optimiertes Bild, in dem Reflektionen unterdrückt und tatsächliche Linien verstärkt werden.
+
+#figure(
+  caption: [(a) Bild aus @pp-dilation, (b) LSD Linien (fusioniert), (c) Helligkeitsangepasstes Bild],
+  grid(
+    columns: (1fr, 1fr, 1fr),
+    column-gutter: 5pt,
+    image("assets/prepr_pipeline/system/1780853403_06_dilation.png", width: 100%),
+    image("assets/prepr_pipeline/system/1780853403_09_filtered_fused_lines.png", width: 100%),
+    image("assets/prepr_pipeline/system/1780853403_10_brightness_enhanced.png", width: 100%)
+  )
+) <pp-brightness>
 === Kontrastoptimierung mit CLAHE
 
 Nachdem Reflektionen im Bild minimiert wurden, liegt ein Bild vor, welches gegenüber dem Rohbild zu signifikant geringeren Falschdetektionen führt. Nun soll zusätzlich sichergestellt werden, dass der Kontrast des Bildes jederzeit normalisiert ist. Das ist wichtig, da Weißwertberechnungen (siehe @white-calc) in einem regelbasierten Detektionssystem nach festen Schwellenwerten arbeiten, die nicht zwischen Frames stark schwanken sollen.
 
 Zu diesem Zweck wird eine CLAHE-Transformation (Contrast Limited Adaptive Histogram Equalization) angewendet. CLAHE ist eine lokale Kontrasterhöhungsmethode, die das Bild in kleinere Kacheln unterteilt und die Histogrammausgleichung auf jede Kachel einzeln anwendet. Der `clipLimit`-Parameter (hier 2.0) begrenzt die Kontrasterhöhung, um eine Überamplifizierung von Rauschen zu vermeiden. CLAHE ist robuster als globale Kontrasterhöhung, da sie lokale Lichtvariationen korrekt ausgleicht. Dies führt dazu, dass die Bildvorverarbeitung auch unter variierenden Lichtverhältnissen konsistente Ergebnisse liefert @clahe. 
 
+#figure(
+  caption: [(a) Inputbild ,(b) Bild aus @pp-brightness, (b) CLAHE-optimiertes Bild],
+  grid(
+    columns: (1fr, 1fr, 1fr),
+    column-gutter: 5pt,
+    image("assets/prepr_pipeline/system/1780853403_01_input_original.png", width: 100%),
+    image("assets/prepr_pipeline/system/1780853403_10_brightness_enhanced.png", width: 100%),
+    image("assets/prepr_pipeline/system/1780853403_11_final_clahe.png", width: 100%),
+  )
+)
 == Kantenerkennung
 Ziel des ersten Entwicklungsinkrements ist das Extrahieren von Linien aus dem Rohbild. Dafür werden verschiedene Methodiken betrachtet, mit denen aus dem Rohbild eine Menge an Linien extrahiert werden kann, die dann in weiteren Schritten zum Bestimmen der Ego- und Opp-Haltelinien genutzt werden können.
 
@@ -402,7 +461,12 @@ $ "NMS"(x, y) = cases(
       - Keine Kante
       - Schwache Kante
       - Starke Kante
-  Canny klassifiziert schwache Kanten nur als Kante, wenn sie mit einem Pixel verbunden sind, der als starke Kante klassifiziert wurde oder über eine Kette schwacher Pixel eine Verbindung vorliegt. Pixel mit Wert unterhalb des Schwellenwerts werden ausgefilter. So entsteht ein Bild, welches mit hellen Pixeln die Kanten des Rohbildes darstellt @canny [S.127ff].
+  Canny klassifiziert schwache Kanten nur als Kante, wenn sie mit einem Pixel verbunden sind, der als starke Kante klassifiziert wurde oder über eine Kette schwacher Pixel eine Verbindung vorliegt. Pixel mit Wert unterhalb des Schwellenwerts werden ausgefilter @canny [S.127ff]. So entsteht ein Bild, welches mit hellen Pixeln die Kanten des Rohbildes darstellt (siehe @img:canny).
+
+  #figure(
+    caption: "Ergebnis Canny-Edge Detektion (Autor)",
+    image("assets/prepr_pipeline/system/1780853407_07_canny_edges.png", width: 45%)
+  ) <img:canny>
 
 == Linienextraktion
 Das gewonnene Bild wird nun zur Linienextraktion verwendet. 
@@ -421,10 +485,6 @@ Nun wird jedes Rechteck durch das `Helmholtz-Prinzip` und der `a contrario-Metho
 
 Ein großer Vorteil des LSD ist, dass er vollständig ohne das Anpassen von Parametern
 funktioniert und Parameter innerhalb des Algorithmus garnicht geändert werden können.
-
-todo maybe mehr später falls gebraucht
-
-O(n)
 
 === Hough Transformation
 
@@ -678,7 +738,7 @@ TODO: auch hier evtl bild der roi
 
 === Linienfusion
 
-Nachdem Linien nach Ort und Länge gefiltert wurden, ist beim Testen ein Problem zu beobachten. Durch Sichttests wird festgestellt, dass in vielen Fällen tatsächliche Haltelinien durch mehrere, unterbrochene Linien dargestellt werden, die logisch zu einer Linie im Bild gehören. Außerdem sind die zu erkennenden Linien stets gerade, es werden also keine Kurven erkannt. Deswegen ist es ein sinnvoller Schritt, die gefunden Linien zu fusionieren. Die Idee ist, Linien, die örtlich nebeneinander liegen und ähnliche Winkel haben, zu einer Linie zu fusionieren. Ziel ist es also, aus einer Menge an Linien eine einzelne repräsentative Linie zu finden.
+Nachdem Linien nach Ort und Länge gefiltert wurden, ist beim Testen ein Problem zu beobachten. Durch Sichttests wird festgestellt, dass in vielen Fällen tatsächliche Haltelinien durch mehrere, unterbrochene Linien dargestellt werden, die logisch zu einer Linie im Bild gehören. Außerdem sind die zu erkennenden Linien stets gerade, es werden also keine Kurven erkannt. Deswegen ist es ein sinnvoller Schritt, die gefunden Linien zu fusionieren. Die Idee ist, Linien, die örtlich nebeneinander liegen und ähnliche Winkel haben, zu einer Linie zu fusionieren. Ziel ist es also, aus einer Menge an Linien eine einzelne repräsentative Linie zu finden (siehe @img:fusion).
 
 Die Fusion der Linien läuft wie folgt ab:
 
@@ -713,6 +773,16 @@ Gruppen mit zu wenigen Mitgliedern werden gelöscht.
 Für jede Linie werden die Start- und Endpunkte bestimmt. Die zuvor bestimmten Gruppen werden somit also zu 2D-Punktemengen. Nun wird die `Principal Component Analysis` (PCA) verwendet, um die Gerade zu finden, die am besten durch die gesamte Punktwolke passt.
 
 Um die PCA durchzuführen, müssen die Punkte vorverarbeitet werden. Zum Einen wird der Mittelpunkt aller Punkte bestimmt und anschließend jeder Punkt um diesen Mittelwert verschoben. Das hat zur Folge, dass der Mittelwert aller Punkte nun im Ursprung liegt @pca (S. 433). Nun wird die `Single Value Decomposition` (SVD) genutzt, um die Punktwolke in Hauptachsen zu zerlegen. Im Code wird dies mit folgendem Befehl durchgeführt: `U, S, Vt = np.linalg.svd(pts - mean)`. `Vt` liefert nun eine Matrix mit den Hauptachsen der Punktwolke. Darin ist der erste Vektor `Vt[0]` die Hauptachse der Datenpunkte, also die Achse "in der sich die Punkte am weitesten ausbreiten". Die zweite Achse liegt dann orthogonal auf der Hauptachse @pca (S. 434ff). Es wird die erste Hauptachse genutzt, um die "Richtung" der Punktwolke zu finden, die dann zum konstruieren der fusionierten Linie benutzt werden kann. die Punkte aus der Punktewolke werden jetzt entlang der Hauptachse projeziert und anschließend die Extrema $P_1$ und $P_2$ der Projektion gespeichert. Diese werden nun mit der Formel $p = "mean" + m*s$ also $P_"2d_max" = "mean" + m*P_1$ und $P_"2d_min" = "mean" + m*P_2$ zurück in den 2D-Raum gerechnet. Das sind dann die Punkte der fusionierten Linie. Diese fusionierte Linie wird nun einem Ergebnisarray angehangen.
+
+#figure(
+  caption: "(a) Rohe Linienoutput aus LSD, (b) gefiltert und fusioniert",
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 5pt,
+    image("assets/prepr_pipeline/system/1780853403_08_detected_lines_raw.png", width: 95%),
+    image("assets/prepr_pipeline/system/1780853403_09_filtered_fused_lines.png", width: 95%)
+  )
+) <img:fusion>
 
 === Winkelfilter
 Um einen weiteren Filter zu konzipieren, der die Menge an Linien, die zur Detektion von Haltelinien in Betracht fallen, minimiert, muss die Hauptausrichtung aller Haltelinien beachtet werden. Diese sind relativ zum Fahrzeug in erster Linie stets vertikal oder horizontal (TODO später auf Kurven verlinken). Somit ist es sinnvoll, einen Filter zu implementieren, der Linien anhand ihrers Winkels ausschließen kann.
@@ -768,23 +838,29 @@ Es muss auch die Position und die Art der Linie bestimmt werden. Jede Linienart 
 === Primitive Ermittlung der Ego- und Opplinie <prim>
 In einem ersten Schritt liegt es nah, die Haltelinie der eigenen Spur zu detektieren. Diese erlaubt es dem Fahrzeug während der Caudri-Challenge rechtmäßig zum Halt zu kommen und gegebenenfalls andere Linien zu detektieren.
 
-Als erster Ansatz wird die Methode gewählt, die Linie als Egolinie zu klasifizieren, die in ihrer Position am nächsten zum Fahrzeug ist und eine horizontale Ausrichtung hat. Um dies umszusetzen, wird der bereits implementierte Winkelfilter genutzt. Durch diesen erhalten wir eine Menge an Linien `horiz`, die alle horizontalen Linien in der Region of Interest darstellen. Nun wird über alle in dieser Menge enthaltenen Linien iteriert und diese dabei nach der Entfernung zur Mitte der untersten ROI Kante sortiert. Die Linie, die den geringsten Abstand aufweist, ist die Egolinie. Nach einer analogen Logik wird nun auch die Opplinie ermittelt, in dem nach der Linie mit geringsten Abstand zur oberen ROI kannte gesucht wird.
+Als erster Ansatz wird die Methode gewählt, die Linie als Egolinie zu klassifizieren, die in ihrer Position am nächsten zum Fahrzeug ist und eine horizontale Ausrichtung hat. Um dies umszusetzen, wird der bereits implementierte Winkelfilter genutzt. Durch diesen erhalten wir eine Menge an Linien `horiz`, die alle horizontalen Linien in der Region of Interest darstellen. Nun wird über alle in dieser Menge enthaltenen Linien iteriert und diese dabei nach der Entfernung zur Mitte der untersten ROI Kante sortiert. Die Linie, die den geringsten Abstand aufweist, ist die Egolinie. Nach einer analogen Logik wird nun auch die Opplinie ermittelt, in dem nach der Linie mit geringsten Abstand zur oberen ROI kannte gesucht wird (siehe @ego-opp-prim).
 
-TODO Bild einfügen
-
+#figure(
+  caption: "Primitive Egolinienerkennung links, Ego und Opp Erkennung rechts (Autor)",
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 15pt,
+    image("assets/ego/image.png", width: 85%),
+    image("assets/ego/egoopp.png", width: 85%)
+  )
+) <ego-opp-prim>
 Diese vorgestellte Methode liefert zufriedenstellende Ergebnisse in Kreuzungen, in denen nur eine Ego- und Opplinie vorhanden sind. Außerdem sollten die Lichtverhältnisse so ausgelegt sein, dass der LSD keine weiteren Linien erkennt, die um die Ego- oder Opplinie herumliegen. Ist dies der Fall, werden Linien falsch klassifiziert. Neben der genannten Schwäche nutzt diese Methodik nicht die allgemeine Struktur einer Kreuzung aus. Innerhalb dieser liegen alle Haltelinien in einem bestimmten, leicht variablen Abstand von einander innerhalb der Kreuzung. Die Kreuzung selbst kann als ein Quadrat interpretiert werden, welches entweder eine Kante (Halteline) oder keine Kante besitzen kann. Die Richtung, in der Spuren in die Kreuzung hineinfließen, ist mit Ausnahme der eigenen Spur, für die Kreuzungsklassifikation nicht relevant.
 
 Mit Blick auf diese Erkentnisse wird eine neue Methodik entwickelt, die es erlaubt, zuverlässiger die Ego- und Opplinie zu erkennen.
 
 === Kreuzungsmittenbasierte Detektion
-TODO: Verweis zu Zentrumsberechnung einfügen
 Die Struktur einer Kreuzung legt nah, dass Haltelinien stets relativ zueinander in einer ähnlichen Position liegen, die in @prim beschrieben ist. Auf Basis dieser Idee wird nun die Kreuzungsmitte genutzt, um Haltelinien zu detektieren.
 
 In einem ersten Versuch, die Kreuzungsmitte zur Detektion der Haltelinien zu nutzen, wird anstatt der Kanten der ROI nun die Kreuzungsmitte als Anhaltspunkt für Abstandsberechnungen genutzt. Demnach sind die Linien Ego- und Opplinie, die am nächsten zur Kreuzungsmitte liegen.
 
 TODO: irgendwann auch den Winkel der Linien erklären (prominent angle) und dazu auch die clip region
 
-Diese Methodik weist gegenüber der primitiven Methodik einige wichtige Verbesserungen auf. Die wichtigste Verbesserung ist, dass die Erkennung nun nicht darauf gestützt ist, dass der Bildausschnitt genau so auf der Kreuzung liegt, dass Ego- und Opplinie die nächsten Linien zur ROI Unter- bzw. Oberkante sind. Das ist vor allem der Fall, wenn das Fahrzeug noch weiter von der Kreuzung entfernt ist oder der LSD eine Linie erkennt, die zwischen einer der ROI Kanten und der tatsächlichen Kreuzung liegt. Durch diese Methodik wird nun auch die Struktur einer Kreuzung ausgenutzt, in der Haltelinien relativ zueinander immer gleich angeordnet sind. Dies erzeugt eine robustere Halteliniendetektion.
+Diese Methodik weist gegenüber der primitiven Methodik einige wichtige Verbesserungen auf. Die wichtigste Verbesserung ist, dass die Erkennung nun nicht darauf gestützt ist, dass der Bildausschnitt genau so auf der Kreuzung liegt, dass Ego- und Opplinie die nächsten Linien zur ROI Unter- bzw. Oberkante sind. Das ist vor allem der Fall, wenn das Fahrzeug noch weiter von der Kreuzung entfernt ist oder der LSD eine Linie erkennt, die zwischen einer der ROI Kanten und der tatsächlichen Kreuzung liegt. Durch diese Methodik wird nun auch die Struktur einer Kreuzung ausgenutzt, in der Haltelinien relativ zueinander immer gleich angeordnet sind. Dies erzeugt eine robustere Halteliniendetektion. Die Implementierung der Kreuzungsmittenberechnung ist in @calc-center beschrieben.
 
 === Sektorbasierte Detektion der rechten und linken Haltelinie
 Nachdem nun vorerst die Egolinie und die Opplinie erkannt werden, ist es wichtig, auch die Haltelinien der Spur, die von Egoausrichtung rechts in die Kreuzung einmündet und die Haltelinie der Spur links zu detektieren. Die Idee der Kreuzungsmitte legt nah, dass diese auch zur Detektion der rechten und linken Haltelinie genutzt werden kann. Man berechne die vertikalen Linien, die am nächsten am Kreuzungszentrum sind. In der Entwicklung ist man nun aber mit der Schwierigkeit konfrontiert, dass die Kreuzungsmitte nicht zuverlässig perfekt zentral platziert ist. Dies hat zur Folge, dass oft Linien, die tatsächlich zur Spur gehören, als Haltelinien erkannt werden.
@@ -799,7 +875,10 @@ Ein Problem dieser Sektorform ist, dass die Fläche, in der die Haltelinie gesuc
 ==== Trapezförmiger Sektor
 Um dem Umstand entgegenzuwirken, dass die Querhaltelinien nicht in der Suchregion liegen, wird der Sektor zu einer Trapezform geändert. Diese werden auf der rechten und linken Seite der ROI platziert. Diese Änderung hat zur Folge, dass der Suchbereich in der Mitte der Höhe der ROI am größten ist. Steht das Fahrzeug nun vor der Kreuzung, soll die Haltelinie theoretisch innerhalb des Sektors liegen.
 
-TODO: Bild??
+#figure(
+  caption: "Trapezförmige Sektoren für linke und rechte Haltelinien (Autor)",
+  image("assets/trapez/trapez.png", width: 45%)
+)
 
 Nach weiteren Überlegungen und Tests wird auch dieser Ansatz verworfen, da statische Formen innerhalb der ROI, in denen die Haltelinien theoretisch zu erwarten sind, nicht zuverlässig funktionieren. Je nach Kalibrierung der Kamera und Anfahrt auf die Kreuzung, müssten sich die Sektoren in ihrer Position verändern.
 
@@ -817,7 +896,7 @@ Aufgrund dieses Umstands werden auch die Querhaltelinien auf Basis des Kreuzungs
 
 Es wird auch die Hauptspurausrichtung genutzt, um die Referenzpunkte so zu berechnen, dass die Referenzen für die Ego- und Opplinie in Richtung des Spurwinkels liegen und die Referenzpunkte für die rechte und linke Haltelinie orthogonal dazu liegen (siehe dazu @ghostcc).
 
-== Berechnung des Kreuzungszentrums
+== Berechnung des Kreuzungszentrums <calc-center>
 Die Struktur der Kreuzungen innerhalb der Caudri-Challenge können zur verbesserten Detektion von Haltelinien ausgenutzt werden. Demnach liegen die Haltelinien jeder Kreuzung stets auf den Kanten eines Quadrats, dessen Ecken die Punkte sind, an denen die Spuren zur Kreuzung zusammenkommen.
 
 === Primitive Bestimmung der Kreuzungsmitte
@@ -929,7 +1008,12 @@ Aus den gesammelten Erkenntnissen ergibt sich folgende Pipeline zur Erkennung de
 === Erweiterung der Kreuzungsmitte <ghostcc>
 Bei der Kreuzungsmittenerkennung kommt es vereinzelt zu Berechnungen von Mitten, die nicht exakt in der tatsächlichen Mitte der Kreuzung liegen. Das ist allgemein unproblematisch für die Erkennung von Haltelinien, kann aber vereinzelt dazu führen, dass Haltelinien später erkannt werden als es möglich wäre oder das System in einigen Frames Haltelinien verliert. Grund dafür ist, dass aufgrund der Logik, die nächste Linie zum Kreuzungszentrum zu suchen, falsche Linien als Haltelinien klassifiziert werden. Die tatsächliche Haltelinie und eine sehr nah an dieser liegende "kämpfen" um die Klassifikation als Haltelinie.
 
-Um dieses Problem zu lösen, werden weitere Referenzpunkte aus der Kreuzungsmitte berechnet. Für die Ego- und Opplinie liegen diese entlang des Hauptwinkels der Linie und für die rechte und linke Haltelinie orthogonal dazu. Da die Referenzpunkte näher an dem tatsächlichen Bereich liegen, in denen die Haltelinien zu vermuten sind, werden auch die korrekten Haltelinien als diese klassifiziert. (TODO BILD)
+Um dieses Problem zu lösen, werden weitere Referenzpunkte aus der Kreuzungsmitte berechnet. Für die Ego- und Opplinie liegen diese entlang des Hauptwinkels der Linie und für die rechte und linke Haltelinie orthogonal dazu. Da die Referenzpunkte näher an dem tatsächlichen Bereich liegen, in denen die Haltelinien zu vermuten sind, werden auch die korrekten Haltelinien als diese klassifiziert.
+
+#figure(
+  caption: "Berechnete Kreuzungsmitte mit Referenzpunkten (Autor)",
+  image("assets/center/image.png", width: 45%)
+)
 
 == Klassifizierung der Linienart
 Neben der Lokalisation der Haltelinien muss auch erkannt werden, um welche Art es sich bei der haltelinie handelt. Haltelinien können sowohl gestrichelt als auch durchgezogen sein.
@@ -968,7 +1052,7 @@ Da nun aber nicht um den Ursprung, sondern durch einen beliebigen Punkt im Bild 
 )
 Nun wird das Zentrum der ursprünglichen Linie in deas rotierte Bild transformiert.
 
-Jetzt wird der Ausschnitt um die Linie aus dem rotierten Bild ausgeschnitten. Der Ausschnitt wird so ausgeschnitten, dass sowohl zu den Seiten als auch oben und unterhalb der Linie Abstand besteht. (TODO BILD einfügen)
+Jetzt wird der Ausschnitt um die Linie aus dem rotierten Bild ausgeschnitten. Der Ausschnitt wird so ausgeschnitten, dass sowohl zu den Seiten als auch oben und unterhalb der Linie Abstand besteht (siehe @gaps). 
 
 === Weißwertberechnung <white-calc>
 Es ist unabdinglich, in verschiedenen Lichtverhältnissen zuverlässig den Weißwert der Linie berechnen zu können. Die Annahme ist, dass neben den weißen Pixeln des Ausschnitts auch graue oder nahezu weiße Pixel um den Linienabschnitt selbst liegen können. Dies kann etwa durch Sonneneinstrahlung passieren.
@@ -1045,6 +1129,11 @@ Um zu bestimmen, ob es sich bei Linien um gestrichelte oder durchgezogene Haltel
 ) <gap-algo>
 
 Schließlich wird über einen Parameter `min_gap_count` bestimmt, wann eine Linie gestrichelt ist. Durch Tests hat sich `min_gap_count=3` als optimaler Parameter für die Funktion ergeben.
+
+#figure(
+  caption: "Gap-Detektion (Autor), links Gesamtbild, rechts Analyseabschnitt mit Canny-Bild und 1D-Spaltenprofil",
+  image("assets/gaps/gaps.png", width: 80%)
+) <gaps>
 
 === Pipeline zur Klassifizierung der Linienart
 
@@ -1295,7 +1384,7 @@ Diese Metrik zeigt an, wie die einzelnen Klassen in dem jeweiligen Datensatz ver
 === Qualitative Fehlermetriken
 Am Ende werden die aufgetretenen Fehler (die fehlgeschlagenen Frames) qualitativ in zwei Kategorien unterteilt. Diese sind einmal `False Positives`, also die Anzahl an Frames, an denen das System fälschlicherweise etwas erkannt hat (Geisterlinien). Zum anderen sind das `False Negatives`, also Linien, die das System nicht klassifiziert hat oder wo es falsch klassifiziert hat.
 
-== Vollständige Fahrt mit striktem Labeling
+== Datensatz 1
 Um den Detektor auf einem allgemeinen Datensatz zu testen, wird eine Fahrt genutzt, die neben Anfahrten von Kreuzungen auch das Durchfahren von Streckenabschnitten ohne Kreuzungen enthält. Dazu ist zu sagen, dass eine solche Situation für die CauDri Challenge von keiner Bedeutung ist, da der Detektor erst bei Detektion eines Kreuzungsschildes eingeschalten wird. Für einen ersten Überblick über die Leistung des Detektors wird eine solche Sequenz trotzdem herangezogen. Die Testfahrt wird mit $N = 286$ Frames abgebildet und enthält mehrere Kreuzungstypen sowie Abschnitte ohne Kreuzungen.
 
 Zuerst werden die Klassifikationen des System strikt nach korrekt und falsch bewertet. Das ist für einen allgemeinen Überblick sinnvoll, ist aber im Kontext der realen Fahrsituation im Gesamten keine ausschlaggebende Bewertung. So kommt es beispielsweise nach einer erfolgreichen Detektion einer Haltelinie zu Flackern danach. Das Fahrzeug wird aber bei erfolgreicher Detektion zum Halt kommen. Somit sind mögliche flackernde Frames keine tatsächliche Störungsquelle für das Fahrzeug.
@@ -1464,121 +1553,119 @@ Die Konfiguration „first contact“ erzielt eine signifikante Performanzsteige
 Besonders deutlich wird dieser Fortschritt bei komplexen Typen wie ed-od-ln-rn, deren Erkennungsrate von kritischen 20,0 % auf perfekte 100,0 % angehoben werden konnte. Das System erweist sich damit unter realen Linienbedingungen als hocheffektiv und weitgehend resistent gegenüber dem zuvor bemängelten „Flackern“.
 
 Diese Resistenz wird unter anderem durch den bufferbasierten Aggregator bewerkstelligt, der Detektionen für mehrere Frames halten kann und damit Instabilitäten bei der Detektion eben dieser Kreuzungsarten (beispielsweise `en-on-ls-rs` oder `en-on-ld-rd`) ausgleichen. Gleichzeitig kann der Aggregator aber auch zu Fehlern führen, da dieser Klassifikationen zu lange im Buffer hält, auch wenn das Fahrzeug die bestimmte Fahrsituation schon durchfahren hat.
-== Einordnung der Evaluation in den Kontext der CauDri-Challenge
-Für die finale Bewertung des Systems ist die geplante Systemarchitektur im Realbetrieb von fundamentaler Bedeutung: Das Erkennungsmodul soll nicht permanent im Hintergrund laufen, sondern wird über die Erkennung von Kreuzungsschildern (Vorfahrt gewähren, Stop) gezielt erst kurz vor einer tatsächlichen Kreuzung aktiviert.
 
-Diese operationelle Randbedingung verändert die Interpretation der vorliegenden Metriken grundlegend, insbesondere mit Blick auf die verbleibenden Schwachstellen:
+== Datensatz 2
+Es wird ein zweiter Datensatz einer anderen Fahrt genutzt ($N = 917$). bei dieser Fahrt haben sich im Vergleich zu Datensatz 1 die Lichtverhältnisse geändert. Außerdem ist die Kameraperspektive leicht verändert. Es ist zu Erwarten, dass vor allem durch die veränderte Kameraperspektive das System Haltelinien schlechter erkennt, da feste Thresholds eventuell True Positives als False Positives aussortieren oder durchgezogene Linien als gestrichelt wahrnehmen. Durch Tunen der Parameter können diese Fehler minimiert werden.
 
-+ Relativierung der False Positives: In der qualitativen Fehleranalyse machen False Positives (Geisterlinien bei `NO_LINE`) mit 78,4 % den absoluten Großteil der verbleibenden 37 Fehler aus. Im permanenten Testbetrieb über die gesamte Strecke (inklusive kreuzungsfreier Abschnitte) wirkte sich diese Überempfindlichkeit stark negativ aus.
+=== Evaluation der Kreuzungserkennung (Datensatz 2)
 
-+ Effekt im Ziel-Szenario: Da das System im Realbetrieb auf reinen Spurenabschnitten (ohne Kreuzungsannäherung) überhaupt nicht aktiv ist, fällt ein Großteil der Streckenabschnitte, die diese 29 False-Positive-Frames erzeugt haben, prozessual weg. Die reale Fehlerquote im Betrieb wird somit nochmals deutlich geringer ausfallen als im synthetischen Gesamttest.
+#v(0.5em)
 
-+ Fokus auf die Anfahrphase („First Contact“): Der Name der Konfiguration unterstreicht den Fokus auf den Moment der Annäherung. Dass Klassen wie en-on-ls-rs ($100\,\%$) oder ed-on-ln-rn ($87,5\,\%$) beim ersten Sichtkontakt hochpräzise klassifiziert werden, ist für die rechtzeitige Pfadplanung des Fahrzeugs kritisch. Ein kurzes Einschwingen oder eine minimale Fehlklassifikation im allerersten Frame des Sichtbereichs wird durch das späte Einschalten des Systems minimiert, da sich das Fahrzeug bereits in einer optimalen Geometrie zur Kreuzung befindet.
-= Fazit
-== Kritische Reflexion
-Innerhalb der Arbeit wurde ein robustes System zur Klassifikation von Kreuzungen implementiert, welches für verschiedene Disziplinen innerhalb der CauDri-Challenge genutzt werden kann.
-=== Ergebnisse
-Allgemein ist das Modul eine Verbesserung gegenüber dem zuvor genutzen Ansatz, bei dem eine festgelegte Strecke nach Erkennung des Schildes abgefahren wird. Das Modul erkennt die eigene Haltelinie robust und verhilft dem Fahrzeug somit zu einem sicheren Halt an der Kreuzung.
-
-Durch eine Bildvorverarbeitungspipeline kann das System Reflexionen zu einem gewissen Grad herausfiltern und tatsächliche Haltelinienkandidaten für eine spätere Detektion hervorheben.
-
-Aus diesen Kandidaten werden dann durch eine mehrschrittige Pipeline alle Linien an der Kreuzung, sowie deren Linienart erkannt.
-=== Herausforderungen
-Neben den positiven Ergebnissen des Systems konnten auch Herausforderungen festgestellt werden, die der klassische Ansatz während der Entwicklung und dem Testing hervorbrachte.
-==== Kamerabedingte Verzerrungen
-Durch die Transformation des Bilds in die Vogelperspektive kam es im oberen Bereich der ROI zu starken Verzerrungen von Linien, wenn diese nicht genau waagerecht im Bild lagen. Waren diese leicht diagonakl, wurden die Linien stufenartig dargestellt. Das war ein Problem für die Liniendetektion, konnte aber durch die Bildvorverarbeitungspipeline in großen Teilen behoben werden. Mit einem Deep-Learning-basierten Ansatz hätte man möglicherweise die Robustheit des Systems gegenüber verzerrten Liniendarstellungen verbessern können. 
-==== Verbesserte False Alarm Rate
-Um die Anzahl an Falschdetektionen zu minimieren sind eine nicht unerhebliche Anzahl an Prüfmethoden von Nöten, die Kandidaten herausfiltern. Falsche Detektion können die eigene Spur sein, die Spur der Querstraße, Fahrstreifenbegrenzungen oder Linien von Sperrflächen sein. Mit Prüfmethoden konnten Falschalarme minimiert werden. Mit einem modellbasierten Ansatz hätte man aber möglicherweise eine stärkere Generalisierung erreicht, die robuster gegen falsche Detektionen gewesen wäre.
-==== Schnelligkeit der Pipeline
-Wie bereits beschrieben, besteht das System aus vielschichtigen Pipelines, die verschiedene Aufgaben erledigen und innerhalb der Hauptpipeline laufen. Außerdem wurde auch bereits beschrieben, dass viele Rechenschritte für das Herausfiltern von falschen Kandidaten und der Plausibilierung von Ergebnissen genutzt werden. Die Laufzeit des Systems stellt kein Problem für den Betrieb im Fahrzeug dar, kann aber optimiert werden.
-== Limitationen
-
-== Ausblick
-=== Erweiterungspotenzial 
-=== Langfristige Perspektiven
-= Erläuterungen
-
-Im folgenden werden einige nützliche Elemente und Funktionen zum Erstellen von Typst-Dokumenten mit diesem Template erläutert.
-
-== Ausdrücke und Abkürzungen
-
-Verwende die `gls`-Funktion, um Ausdrücke aus dem Glossar einzufügen, die dann dorthin verlinkt werden. Ein Beispiel dafür ist: 
-
-Im diesem Kapitel wird eine #gls("Softwareschnittstelle") beschrieben. Man spricht in diesem Zusammenhang auch von einem #gls("API"). Die Schnittstelle nutzt Technologien wie das #gls("HTTP").
-
-Das Template nutzt das `glossarium`-Package für solche Glossar-Referenzen. In der zugehörigen #link("https://typst.app/universe/package/glossarium/", "Dokumentation") werden noch weitere Varianten für derartige Querverweise gezeigt. Dort ist auch im Detail erläutert, wie das Glossar aufgebaut werden kann.
-
-
-== Listen
-
-Es gibt Aufzählungslisten oder nummerierte Listen:
-
-- Dies
-- ist eine
-- Aufzählungsliste
-
-+ Und
-+ hier wird
-+ alles nummeriert.
-
-== Abbildungen und Tabellen
-
-Abbildungen und Tabellen (mit entsprechenden Beschriftungen) werden wie folgt erstellt.
-
-=== Abbildungen
-
-#figure(caption: "Eine Abbildung", image(width: 4cm, "assets/ts.svg"))
-
-=== Tabellen
-
-#figure(
-  caption: "Eine Tabelle",
-  table(
-    columns: (1fr, 50%, auto),
-    inset: 10pt,
-    align: horizon,
-    table.header(
-      [],
-      [*Area*],
-      [*Parameters*],
-    ),
-
-    text("cylinder.svg"),
-    $ pi h (D^2 - d^2) / 4 $,
-    [
-      $h$: height \
-      $D$: outer radius \
-      $d$: inner radius
-    ],
-
-    text("tetrahedron.svg"), $ sqrt(2) / 12 a^3 $, [$a$: edge length],
+// Metadaten als kleine Info-Boxen
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 1cm,
+  block( 
+    fill: rgb("f0f4f8"),
+    inset: 8pt,
+    radius: 4pt,
+    width: 100%,
+    [#strong("Analysierte Datensätze (N):") #h(1fr) 917]
   ),
-)<table>
+  block(
+    fill: rgb("e8f5e9"),
+    inset: 8pt,
+    radius: 4pt,
+    width: 100%,
+    [#strong("Globale Accuracy:") #h(1fr) #strong("86,80 %")]
+  )
+)
 
-== Programm Quellcode
+#v(1em)
 
-Quellcode mit entsprechender Formatierung wird wie folgt eingefügt:
+// Haupttabelle
+#table(
+  columns: (2.5fr, 1fr, 1fr, 1fr),
+  align: (left, center, center, center),
+  stroke: (x, y) => if y == 0 { (bottom: 1.5pt + black) } else { (bottom: 0.5pt + rgb("e0e0e0")) },
+  fill: (col, row) => if row == 0 { rgb("f5f5f5") } else { none },
+  
+  // Header
+  table.header(
+    [*Kreuzungstyp (Ground Truth)*], [*Anzahl*], [*Verteilung*], [*Accuracy*]
+  ),
 
-#figure(
-  caption: "Ein Stück Quellcode",
-  sourcecode[```ts
-    const ReactComponent = () => {
-      return (
-        <div>
-          <h1>Hello World</h1>
-        </div>
-      );
-    };
+  // Datenzeilen
+  [`NO_LINE`], [733], [79,9 %], [94,4 %],
+  [`es-os-ln-rn`], [44], [4,8 %], [22,7 %],
+  [`ed-od-ln-rn`], [30], [3,3 %], [43,3 %],
+  [`en-os-ln-rs`], [26], [2,8 %], [100,0 %],
+  [`en-on-ls-rs`], [17], [1,9 %], [5,9 %],
+  [`es-on-ln-rn`], [15], [1,6 %], [100,0 %],
+  [`es-on-ls-rn`], [14], [1,5 %], [85,7 %],
+  [`es-on-ln-rs`], [13], [1,4 %], [100,0 %],
+  [`en-os-ls-rn`], [13], [1,4 %], [15,4 %],
+  [`en-on-ln-rs`], [12], [1,3 %], [100,0 %],
+)
 
-    export default ReactComponent;
-    ```],
+#v(1.5em)
+
+// Qualitative Fehlerverteilung
+#block(
+  width: 100%,
+  stroke: 0.5pt + rgb("d32f2f"),
+  inset: 10pt,
+  radius: 4pt,
+  fill: rgb("fdeaea"),
+  [
+    #text(weight: "bold", fill: rgb("d32f2f"))[Qualitative Fehlerverteilung (121 fehlgeschlagene Frames):]
+    #v(0.5em)
+    #list(
+      [#strong("False Positives") (Geisterlinien bei `NO_LINE`): 41 / 121 #h(1fr) #strong("33,9 %")],
+      [#strong("Verpasste Linien / Falsche Typen") (bei Linien): 80 / 121 #h(1fr) #strong("66,1 %")]
+    )
+  ]
 )
 
 
-== Verweise
+=== Auswertung der Evaluation Datensatz 2 <eval2>
+Das System zeigt in der ersten Evaluierungsphase unter konstanten Design-Bedingungen eine vielversprechende funktionale Performance. Insbesondere die anwendungsspezifische First-Contact-Metrik belegt mit einer globalen Accuracy von 87,06 % und einer fehlerfreien Erkennung kritischer Haltelinien (z. B. 100 % bei es-os-ln-rn), dass der Algorithmus für den gezielten Einsatz unmittelbar vor Kreuzungsbereichen mathematisch und funktional geeignet ist. Dieser positive Eindruck relativiert sich jedoch grundlegend, sobald das System mit veränderten Umgebungsbedingungen konfrontiert wird. Bei der Auswertung eines erweiterten, zweiten Datensatzes ($N = 917$) unter modifizierten Beleuchtungsverhältnissen und veränderten Kameraperspektiven sank die Erkennungsrate derselben Kreuzungsklasse (es-os-ln-rn) drastisch auf 22,7 %. Während die globale Accuracy bedingt durch den dominanten Anteil an Freistrecken (NO_LINE, 79,9 % Anteil) mit 86,80 % scheinbar stabil bleibt, offenbart die Detailanalyse eine kritische Blindheit des Systems gegenüber realen Linienstrukturen, da nun 66,1 % aller Fehlklassifikationen als False Negatives auftreten. Eine tiefergehende algorithmische Analyse dieser Sensitivität sowie die daraus resultierenden Systemgrenzen der klassischen Linienextraktion werden in der kritischen Würdigung (@reflection) dieser Arbeit detailliert erörtert.
+= Fazit
+== Kritische Reflexion <reflection>
+Innerhalb der Arbeit wurde ein System zur Klassifikation von Kreuzungen implementiert, welches für verschiedene Disziplinen innerhalb der CauDri-Challenge genutzt werden kann.
+=== Positive Ergebnisse
+Allgemein ist das Modul eine Verbesserung gegenüber dem zuvor genutzen Ansatz, bei dem eine festgelegte Strecke nach Erkennung des Schildes abgefahren wird. Das Modul erkennt die eigene Haltelinie und verhilft dem Fahrzeug somit zu einem sicheren Halt an der Kreuzung.
 
-Für Literaturverweise verwendet man die `cite`-Funktion oder die Kurzschreibweise mit dem \@-Zeichen:
-- `#cite(form: "prose", <iso18004>)` ergibt: \ #cite(form: "prose", <iso18004>)
-- Mit `@iso18004` erhält man: @iso18004
++ Durch eine Bildvorverarbeitungspipeline kann das System Reflexionen zu einem gewissen Grad herausfiltern, tatsächliche Haltelinienkandidaten für eine spätere Detektion hervorheben, verzerrte Linien glätten. Diese Pipeline ist ein stabiles System, welches auch für andere Module mit Liniendetektion genutzt werden kann.
 
-Tabellen, Abbildungen und andere Elemente können mit einem Label in spitzen Klammern gekennzeichnet werden (die Tabelle oben hat z.B. das Label `<table>`). Sie kann dann mit `@table` referenziert werden. Das ergibt im konkreten Fall: @table
++ Durch eine Kreuzungsmittenberechnung können Linienkandidaten den verschiedenen Haltelinien zugeordnet werden.
+
++ Innerhalb der Haltelinien kann zwischen durchgezogenen und gestrichelten Haltelinien unterschieden werden.
+
++ Durch Berechnung des Heading-Winkels werden Haltelinien auch aus der Kurve erkannt.
+
++ Durch ein Buffering System wird die Auswirkung von Flackern minimiert und die Stabilität des Ergebnisses erhöht.
+
+Insgesamt ist das System bei ausreichendem Tuning von Schwellenwerten und Parametern robust, was es für die CauDri Challenge nutzbar macht.
+=== Herausforderungen
+Neben den positiven Ergebnissen des Systems konnten auch Herausforderungen festgestellt werden, die der klassische Ansatz während der Entwicklung und dem Testing hervorbrachte.
+==== Parametrisierung des Systems <param>
+Da es sich bei dieser Kreuzungserkennung um einen klassischen Ansatz handelt, müssen die Parameter des Systems vor dem Gebrauch angepasst werden. Bei der Auswertung in @eval2 ist hervorgekommen, dass das System bei Wechsel der Kameraperspektive und bei wechselnden Lichtverhältnissen (sonniger Tag entgegen bewölkter Tag) keine robuste Performance aufweist. Das liegt daran, dass das System mit festkodierten, aber anpassbaren Schwellenwerten und Parametern arbeitet, die Komponenten innerhalb des Systems dazu bewegen können, tatsächliche Haltelinien als False Positives auszufiltern oder False Positives als tatsächliche Haltelinien zu erkennen.
+==== Kamerabedingte Verzerrungen
+Durch die Transformation des Bilds in die Vogelperspektive kam es im oberen Bereich der ROI zu starken Verzerrungen von Linien, wenn diese nicht genau waagerecht im Bild lagen. Waren diese leicht diagonal, wurden die Linien stufenartig dargestellt. Das war ein Problem für die Liniendetektion, konnte aber durch die Bildvorverarbeitungspipeline in großen Teilen behoben werden.
+==== Verbesserte False Alarm Rate
+Um die Anzahl an Falschdetektionen zu minimieren sind eine nicht unerhebliche Anzahl an Prüfmethoden von Nöten, die Kandidaten herausfiltern. Falsche Detektion können die eigene Spur sein, die Spur der Querstraße, Fahrstreifenbegrenzungen oder Linien von Sperrflächen sein. Mit Prüfmethoden konnten Falschalarme minimiert werden. Diese müssen parametrisiert werden (siehe @param).
+==== Schnelligkeit der Pipeline
+Wie bereits beschrieben, besteht das System aus vielschichtigen Pipelines, die verschiedene Aufgaben erledigen und innerhalb der Hauptpipeline laufen. Außerdem wurde auch bereits beschrieben, dass viele Rechenschritte für das Herausfiltern von falschen Kandidaten und der Plausibilierung von Ergebnissen genutzt werden. Die Laufzeit des Systems stellt kein Problem für den Betrieb im Fahrzeug dar, kann aber optimiert werden.
+== Ausblick
+Das entwickelte System ist eine robuste Verbesserung gegenüber dem blinden Anfahren an Haltelinien. Es stellt einen ersten Schritt zu einer soliden Kreuzungserkennung dar, die das Fahrzeug innerhalb der CauDri-Challenge nutzen kann.
+=== Erweiterungspotenzial
+Um auf dem bestehenden System aufzubauen, kann es einige Schritte geben, um das System stabiler zu machen. Diese sind folgende:
+
++ Verbesserte Kreuzungsmittendetektion: Die Berechnung der Kreuzungsmitte erfolgt auf Basis der Shi-Tomasi Eckenerkennung und liefert unter Umständen Mitten, die leicht verschoben oder zu weit von der tatsächlichen Kreuzungsmitte liegen. Es könnte zu besseren Ergebnissen führen, die Parameter des Shi-Tomasi Algorithmus weiter zu optimieren. Es könnte außerdem auch ein Ansatz mit Fluchtpunktbildung getestet werden, welcher die Frontalsicht der Kamera nutzen müsste. Ferner kann ein modellbasierter Ansatz bessere Ergebnisse bringen.
+
++ Dynamische ROI: Mit einer dynamischen ROI könnte Falschdetektionen minimiert werden, ohne eine Vielzahl an regelbasierten Testalgorithmen zu nutzen.
+
++ Minimierung von Weißwertberechnungen: Komponenten wie das Erkennen von durchgezogenen oder gestrichelten Linien sowie das Filtern von False Positives wird durch Weißwertberechnungen gemacht, die stark von den aktuellen Lichtverhältnissen abhängen. Das funktioniert mit Anpassung von Parametern.
+=== Langfristige Perspektiven
+Langfristig können viele Verbesserungspotentiale des Systems durch Wechsel zu einem modellbasierten Ansatz gelöst werden. Es bleibt aus, die Performance eines solchen Systems zu evaluieren. Es könnte aber durch Generalisierung beim Training robust gegenüber Lichtinvarianzen und Kameraeinstellungen sein sowie die Anzahl an Testfunktionen zum Ausfiltern von False Positives minimieren. Dafür könnte man ein YOLO-basiertes Modell (beispielsweise YOLO-World) verwenden und dieses auf Daten der Simulation sowie von aufgenommenen Rosbags trainieren @Cheng_2024_CVPR.
