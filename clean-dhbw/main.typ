@@ -48,20 +48,21 @@
 #show: clean-dhbw.with(
   title: "Entwicklung eines klassischen Kreuzungsdetektors",
   authors: (
-    (name: "Reinhold Brant", student-id: "7261389", course: "STG-TINF23ITA", course-of-studies: "Informatik", company: (
-      (name: "Robert Bosch GmbH", post-code: "76131", city: "Karlsruhe")
-    )),
-    // (name: "Juan Pérez", student-id: "1234567", course: "TIM21", course-of-studies: "Mobile Computer Science", company: (
-    //   (name: "ABC S.L.", post-code: "08005", city: "Barcelona", country: "Spain")
-    // )),
+    (
+      name: "Reinhold Brant", 
+      student-id: "7261389", 
+      course: "STG-TINF23ITA", 
+      course-of-studies: "Informatik", 
+      city: "Stuttgart"
+    ),
   ),
   type-of-thesis: "Studienarbeit",
-  at-university: false, // if true the company name on the title page and the confidentiality statement are hidden
+  at-university: true, // if true the company name on the title page and the confidentiality statement are hidden
   bibliography: bibliography("sources.bib"),
   date: datetime.today(),
   glossary: glossary-entries, // displays the glossary terms defined in "glossary.typ"
   language: "de", // en, de
-  supervisor: (company: "John Appleseed", university: "Prof. Dr. Daniel Düsentrieb"),
+  supervisor: (university: "Tom Freudenmann "),
   university: "Duale Hochschule Baden-Württemberg",
   university-location: "Stuttgart",
   university-short: "DHBW",
@@ -137,7 +138,7 @@ Eine Methode der Detektion beruht auf dem Nutzen von CNNs (Convolutional Neural 
 
 === Linien-basierte Deep-Learning-Methoden
 
-Eine neuere Methode stellt die Verwendung von Linien-Detektoren als Zwischenmerkmale dar. Statt direkt mit Bounding-Boxen zu arbeiten, werden Linien als Segmente mit Dicke modelliert. Dies ermöglicht eine präzisere Erfassung der eigentlichen Haltelinien-Geometrie und reduziert Annotationsaufwand gegenüber pixelbasierten Methoden. Ein zweistufiger Ansatz kombiniert dabei einen Liniendetektor mit einem Stop-Linien-Detektor. Der Liniendetektor leitet den Prozess ein und hilft dem Netzwerk, sich auf Fahrbahnmarkierungen zu konzentrieren. Multi-Task Learning mit mehreren Verlustfunktionen (Zentrum-Verlust, Verschiebungs-Verlust, Dicke-Verlust und Segmentierungs-Verlust) verbessert die Robustheit des Modells. Diese Kombination ermöglicht sowohl effiziente Berechnung als auch hohe Genauigkeit unter komplexen Bedingungen @stopline2. TODO: nochmal drüberschauen.
+Eine neuere Methode stellt die Verwendung von Linien-Detektoren als Zwischenmerkmale dar. Statt direkt mit Bounding-Boxen zu arbeiten, werden Linien als Segmente mit Dicke modelliert. Dies ermöglicht eine präzisere Erfassung der eigentlichen Haltelinien-Geometrie und reduziert Annotationsaufwand gegenüber pixelbasierten Methoden. Ein zweistufiger Ansatz kombiniert dabei einen Liniendetektor mit einem Stop-Linien-Detektor. Der Liniendetektor leitet den Prozess ein und hilft dem Netzwerk, sich auf Fahrbahnmarkierungen zu konzentrieren. Multi-Task Learning mit mehreren Verlustfunktionen (Zentrum-Verlust, Verschiebungs-Verlust, Dicke-Verlust und Segmentierungs-Verlust) verbessert die Robustheit des Modells. Diese Kombination ermöglicht sowohl effiziente Berechnung als auch hohe Genauigkeit unter komplexen Bedingungen @stopline2. 
 
 == Vergleich
 Allgemein ist zu vermuten, dass der deep-learning-basierte Ansatz eine robustere Liniendetektion erlaubt. Um ein solches System umzusetzen, müssen vorerst Daten gesammelt und aufbereitet werden, sodass man mit diesen Daten Modelle trainieren kann. Für den zugrunde liegenden Fall der Detektion innerhalb der CauDri-Challenge wird angenommen, dass eine Detektion von Haltelinien zur Klassifizierung der Kreuzung auch ohne das Training von Modellen durch einen klassischen Ansatz erreicht werden kann, da die die Strecke innerhalb der Challenge standardisiert und genormt ist, sowie keine starken Störfaktoren wie Wetter, Schmutz oder Überdeckungen aufweist. Ein Störfaktor ist die Lichtverschmutzung auf der Strecke, was aber durch eine passende Bildvorverarbeitung als lösbar angesehen wird.
@@ -388,15 +389,15 @@ In der Kreuzungserkennung wird diese Kombination verwendet, um das nach der Cann
   grid(
     columns: (1fr, 1fr),
     column-gutter: 10pt,
-    image("assets/prepr_pipeline/system/1780853403_01_input_original.png", width: 85%),
-    image("assets/prepr_pipeline/system/1780853403_06_dilation.png", width: 85%)
+    image("assets/prepr_pipeline/blurry/1780908093_01_input_original.png", width: 85%),
+    image("assets/prepr_pipeline/blurry/1780908093_06_dilation.png", width: 85%)
   )
 ) <pp-dilation>
 
 === Reflektionsminimierung
-Durch die Einstrahlung der Sonne auf die Strecke können innerhalb des Kamerabildes Bereiche entstehen, die sehr hell sind (nah einer Intensität von 255). Diese können von der Liniendetektion falsch als Linienkandidaten klassifiziert werden. Es wird eine Methode vorgeschlagen, mit der Lichtreflektionen stark minimiert werden können (TODO BILD).
+Durch die Einstrahlung der Sonne auf die Strecke können innerhalb des Kamerabildes Bereiche entstehen, die sehr hell sind (nah einer Intensität von 255). Diese können von der Liniendetektion falsch als Linienkandidaten klassifiziert werden. Es wird eine Methode vorgeschlagen, mit der Lichtreflektionen stark minimiert werden können (siehe @pp-brightness).
 
-Um dem entgegenzuwirken, wird der Canny Algorithmus mit dem LSD (TODO ref hinzufügen), um Linienkandidaten zu gewinnen. Diese werden dann gefiltert und fusioniert (siehe @lin-detect-pip und @lin-proc-pipe). Nun gibt es eine Menge $L$ an Linienkandidaten, die in ihrer Allgemeinheit zufriedenstellend für eine Detektion wären, aber durch Reflektionen im Bild auch zu falschen Detektionen führen könnten.
+Um dem entgegenzuwirken, wird der Canny Algorithmus mit dem LSD (siehe @edges ff.), um Linienkandidaten zu gewinnen. Diese werden dann gefiltert und fusioniert (siehe @lin-detect-pip und @lin-proc-pipe). Nun gibt es eine Menge $L$ an Linienkandidaten, die in ihrer Allgemeinheit zufriedenstellend für eine Detektion wären, aber durch Reflektionen im Bild auch zu falschen Detektionen führen könnten.
 
 Die Koordinaten der Elemente aus $L$ werden nun zu Pixelindizes umgerechnet, um eine Pixelmaske zu erhalten, welche zur Analyse von Intensitätswerten genutzt werden kann. Es wird nun über die relevanten Pixel in der Maske iteriert und diese zu einer Liste hinzugefügt. Daraufhin wird das 90. Perzentil dieser Liste an Intensitätswerten als Fixpunkt $p$ angenommen. Nun werden analog zu @white-calc alle Pixel Sigmoid-basiert um diesen Threshold normalisiert. Stark hellere als auch stark dunklere Pixel werden stark verdunkelt und Pixelwerte, die in der Nähe von $p$ sind, werden verstärkt. Es ergibt sich ein optimiertes Bild, in dem Reflektionen unterdrückt und tatsächliche Linien verstärkt werden.
 
@@ -405,9 +406,9 @@ Die Koordinaten der Elemente aus $L$ werden nun zu Pixelindizes umgerechnet, um 
   grid(
     columns: (1fr, 1fr, 1fr),
     column-gutter: 5pt,
-    image("assets/prepr_pipeline/system/1780853403_06_dilation.png", width: 100%),
-    image("assets/prepr_pipeline/system/1780853403_09_filtered_fused_lines.png", width: 100%),
-    image("assets/prepr_pipeline/system/1780853403_10_brightness_enhanced.png", width: 100%)
+    image("assets/prepr_pipeline/blurry/1780908093_06_dilation.png", width: 100%),
+    image("assets/prepr_pipeline/blurry/1780908093_09_filtered_fused_lines.png", width: 100%),
+    image("assets/prepr_pipeline/blurry/1780908093_10_brightness_enhanced.png", width: 100%)
   )
 ) <pp-brightness>
 === Kontrastoptimierung mit CLAHE
@@ -421,12 +422,12 @@ Zu diesem Zweck wird eine CLAHE-Transformation (Contrast Limited Adaptive Histog
   grid(
     columns: (1fr, 1fr, 1fr),
     column-gutter: 5pt,
-    image("assets/prepr_pipeline/system/1780853403_01_input_original.png", width: 100%),
-    image("assets/prepr_pipeline/system/1780853403_10_brightness_enhanced.png", width: 100%),
-    image("assets/prepr_pipeline/system/1780853403_11_final_clahe.png", width: 100%),
+    image("assets/prepr_pipeline/blurry/1780908093_01_input_original.png", width: 100%),
+    image("assets/prepr_pipeline/blurry/1780908093_10_brightness_enhanced.png", width: 100%),
+    image("assets/prepr_pipeline/blurry/1780908093_11_final_clahe.png", width: 100%),
   )
 )
-== Kantenerkennung
+== Kantenerkennung <edges>
 Ziel des ersten Entwicklungsinkrements ist das Extrahieren von Linien aus dem Rohbild. Dafür werden verschiedene Methodiken betrachtet, mit denen aus dem Rohbild eine Menge an Linien extrahiert werden kann, die dann in weiteren Schritten zum Bestimmen der Ego- und Opp-Haltelinien genutzt werden können.
 
 === Canny Edge Detector
@@ -449,7 +450,9 @@ $ G_y = mat(
   -1, -2, -1
 ) $,
 ) 
-Die Faltung mit diesen zwei Matrizen resultiert in einem neuen Bild, welches an den Stellen, an denen der Gradient der Pixelwerte zwischen benachbarten Pixeln am größten ist, hellere Pixel hat als an Stellen, wo der Gradient nicht so stark ist. Benachbarte Pixel, die alle den selben Wert haben, werden nach der Faltung einen Pixelwert von 0 haben, weswegen sie schwarz sind. Da sowohl entlang der x-Achse als auch der y-Achse gefaltet wird, wird jedem Pixel somit ein Vektor der Größe 2x1, welcher die Intensität der Änderung in der respektiven Richtung anzeigt. <cannyangle>
+#figure(
+"Die Faltung mit diesen zwei Matrizen resultiert in einem neuen Bild, welches an den Stellen, an denen der Gradient der Pixelwerte zwischen benachbarten Pixeln am größten ist, hellere Pixel hat als an Stellen, wo der Gradient nicht so stark ist. Benachbarte Pixel, die alle den selben Wert haben, werden nach der Faltung einen Pixelwert von 0 haben, weswegen sie schwarz sind. Da sowohl entlang der x-Achse als auch der y-Achse gefaltet wird, wird jedem Pixel somit ein Vektor der Größe 2x1, welcher die Intensität der Änderung in der respektiven Richtung anzeigt." 
+) <cannyangle>
 
 3. Die Werte aus dem Spaltenvektor mit den Intensitätswerten des Gradienten werden nun benutzt, um die Richtung der Kante zu bestimmen. Die Richtung der Änderung wird mit $theta = arctan(frac(G_y, G_x))$ berechnet. Es kann vorkommen, dass $G_x$ den Wert Null besitzt. In diesem Fall wird der Winkel als 90 Grad angesetzt.
 4. Nun wird auf die gesamte Intensitätsmatrix nach der Schritt 3 die `Non-Maximum Suppression` durchgeführt. Diese betrachet nun in Richtung der maximalen Änderung (Schritt 3) die Intensitätswerte aus der Gradientenmatrix aus Schritt 2. Dabei wird entlang dieser Richtung das lokale Maximum erhalten und die restlichen Pixelwerte auf 0 gesetzt. Somit wird hier eine klare Kante errechnet (siehe @nms).
@@ -474,7 +477,7 @@ Das gewonnene Bild wird nun zur Linienextraktion verwendet.
 Allgemein werden zwei Verfahren für die Detektion von Liniensegmenten geprüft, welche oft in der digitalen Bildverarbeitung Verwendung finden. Diese sind zum einen die `Hough Transformation` und der `Line Segment Detector (LSD)` Algorithmus nach Rafael Grompone von Gioi et altera. 
 
 === Line Segment Detector
-Der LSD Algorithmus ist ein geometrischer Extraktionsalgorithmus, welcher in linearer Zeit subpixel genaue Ergebnisse zu Liniensegmenten liefern kann. Auch der LSD basiert auf der Detektion von sich lokal stark ändernden Pixelwerten. Der LSD erstellt ein Vektorfeld, dessen Vektoren orthogonal zu den Richtungsvektoren der Gradientenänderung stehen (siehe cannyangle todo). Dies sieht dann wie folgt aus.
+Der LSD Algorithmus ist ein geometrischer Extraktionsalgorithmus, welcher in linearer Zeit subpixel genaue Ergebnisse zu Liniensegmenten liefern kann. Auch der LSD basiert auf der Detektion von sich lokal stark ändernden Pixelwerten. Der LSD erstellt ein Vektorfeld, dessen Vektoren orthogonal zu den Richtungsvektoren der Gradientenänderung stehen (siehe @cannyangle). Dies sieht dann wie folgt aus.
 #figure(
   image("assets/lsd_vecfield.png"),
   caption: "LSD Vektorfeld"
@@ -701,13 +704,11 @@ def filter_by_length(self, lines, min_l: float = 70.0, max_l=10000):
 
 Es werden nur Linien mit einer Länge zwischen `min_l` und `max_l` behalten. Dies ist wichtig, um Rauschlinien auszuschließen und nur relevante Strukturen zu verarbeiten.
 
-TODO: anfügen irgendwo, dass Variablennamen gekürzt werden aus Lesbarkeitsgründen
-
 Durch Tests auf Sicht hat sich für einen ersten Längenfilter der Linien eine Pixellänge von `20` bewährt. Damit werden vorerst kleine Rauschlinien aus der potentiellen Menge entfernt.
 
 Filterung der Linien ist wichtig, da eine geringe Menge an Linien dazu führt, dass das später zu implementierende System weniger Möglichkeiten hat, eine falsche Linie auszuwählen.
 
-TODO: Bilder aus dem Modul aufnehmen und hier rein pasten
+TODO: bild
 
 === Region of Interest Filter
 
@@ -733,8 +734,6 @@ Das Konzept des ROI-Filters lässt sich algorithmisch wie folgt darstellen:
 ) <roi-algo>
 
 Für die relativen ROI-Grenzen wird durch Tests eine Definition von `FILTERING_ROI_REL_RLTB = (0.80, 0, 0, 0.815)` gewählt.
-
-TODO: auch hier evtl bild der roi
 
 === Linienfusion
 
@@ -785,7 +784,7 @@ Um die PCA durchzuführen, müssen die Punkte vorverarbeitet werden. Zum Einen w
 ) <img:fusion>
 
 === Winkelfilter
-Um einen weiteren Filter zu konzipieren, der die Menge an Linien, die zur Detektion von Haltelinien in Betracht fallen, minimiert, muss die Hauptausrichtung aller Haltelinien beachtet werden. Diese sind relativ zum Fahrzeug in erster Linie stets vertikal oder horizontal (TODO später auf Kurven verlinken). Somit ist es sinnvoll, einen Filter zu implementieren, der Linien anhand ihrers Winkels ausschließen kann.
+Um einen weiteren Filter zu konzipieren, der die Menge an Linien, die zur Detektion von Haltelinien in Betracht fallen, minimiert, muss die Hauptausrichtung aller Haltelinien beachtet werden. Diese sind relativ zum Fahrzeug in erster Linie stets vertikal oder horizontal. Somit ist es sinnvoll, einen Filter zu implementieren, der Linien anhand ihrers Winkels ausschließen kann.
 
 Der Winkelfilter iteriert über eine Menge an Linien und berechnet durch den Winkel des Differnenzvektors des Start- und Endpunkts der Linie die Ausrichtung eben dieser. Dieser Winkel wird nun normalisiert und daraufhin getestet, ob dieser innerhalb einer Toleranz um 90 Grad bzw. 0 Grad liegt. Die Linien werden als zwei Listen `horiz` und `vert` zurückgegeben.
 
@@ -858,15 +857,13 @@ Die Struktur einer Kreuzung legt nah, dass Haltelinien stets relativ zueinander 
 
 In einem ersten Versuch, die Kreuzungsmitte zur Detektion der Haltelinien zu nutzen, wird anstatt der Kanten der ROI nun die Kreuzungsmitte als Anhaltspunkt für Abstandsberechnungen genutzt. Demnach sind die Linien Ego- und Opplinie, die am nächsten zur Kreuzungsmitte liegen.
 
-TODO: irgendwann auch den Winkel der Linien erklären (prominent angle) und dazu auch die clip region
-
 Diese Methodik weist gegenüber der primitiven Methodik einige wichtige Verbesserungen auf. Die wichtigste Verbesserung ist, dass die Erkennung nun nicht darauf gestützt ist, dass der Bildausschnitt genau so auf der Kreuzung liegt, dass Ego- und Opplinie die nächsten Linien zur ROI Unter- bzw. Oberkante sind. Das ist vor allem der Fall, wenn das Fahrzeug noch weiter von der Kreuzung entfernt ist oder der LSD eine Linie erkennt, die zwischen einer der ROI Kanten und der tatsächlichen Kreuzung liegt. Durch diese Methodik wird nun auch die Struktur einer Kreuzung ausgenutzt, in der Haltelinien relativ zueinander immer gleich angeordnet sind. Dies erzeugt eine robustere Halteliniendetektion. Die Implementierung der Kreuzungsmittenberechnung ist in @calc-center beschrieben.
 
 === Sektorbasierte Detektion der rechten und linken Haltelinie
 Nachdem nun vorerst die Egolinie und die Opplinie erkannt werden, ist es wichtig, auch die Haltelinien der Spur, die von Egoausrichtung rechts in die Kreuzung einmündet und die Haltelinie der Spur links zu detektieren. Die Idee der Kreuzungsmitte legt nah, dass diese auch zur Detektion der rechten und linken Haltelinie genutzt werden kann. Man berechne die vertikalen Linien, die am nächsten am Kreuzungszentrum sind. In der Entwicklung ist man nun aber mit der Schwierigkeit konfrontiert, dass die Kreuzungsmitte nicht zuverlässig perfekt zentral platziert ist. Dies hat zur Folge, dass oft Linien, die tatsächlich zur Spur gehören, als Haltelinien erkannt werden.
 
 ==== Dreieckssektor
-Aufgrund dieser Tatsache wird eine Methodik vorgestellt, die zwei dreieckige Sektoren nutzt, die innerhalb der ROI rechts und links platziert werden, um entsprechende Haltelinien zu finden. TODO: Bild einfügen. Diese Sektoren bestehen aus einem nach oben geöffneten Dreieck für die rechte Haltelinie und einem nach unten geöffneten Dreieck für die linke Haltelinie. Die Dreiecksstrukur ist darin begründet, dass bei minimalem Lenken des Fahrzeugs die Querhaltelinien in x-Position teilweise nach rechts oder links verschoben sein können.
+Aufgrund dieser Tatsache wird eine Methodik vorgestellt, die zwei dreieckige Sektoren nutzt, die innerhalb der ROI rechts und links platziert werden, um entsprechende Haltelinien zu finden. Diese Sektoren bestehen aus einem nach oben geöffneten Dreieck für die rechte Haltelinie und einem nach unten geöffneten Dreieck für die linke Haltelinie. Die Dreiecksstrukur ist darin begründet, dass bei minimalem Lenken des Fahrzeugs die Querhaltelinien in x-Position teilweise nach rechts oder links verschoben sein können.
 
 Innerhalb des Sektors wird nun die Linie als Haltelinie ausgewählt, die am längsten ist.
 
@@ -887,12 +884,10 @@ Die ROI wird nun in vier Quadranten unterteilt, die von Q1 bis Q4 (1 - oben link
 
 Mit Hilfe der Quadrantenbasierten Suche gelingt es, Querhaltelinien zu erkennen.
 
-TODO: wie und wann Sprung auf BEV erklären
-
 === Zentrumsbasierte Detektion aller Haltelinien
 Die vorgestellten Methoden zur Detektion der rechten und linken Haltelinien weisen bei Kreuzungsanfahrt aus Kurven oder bei falsch detektierten Linien enorme Defizite auf.
 
-Aufgrund dieses Umstands werden auch die Querhaltelinien auf Basis des Kreuzungszentrums berechnet. Es bleibt jedoch die Schwierigkeit, dass die aus dem Bilddaten berechnete Position des Kreuzungszentrums nicht exakt mit der tatsächlichen Position des Kreuzungszentrums übereinstimmt. Um, diesem Problem entgegenzuwirken, werden die aus dem Kreuzungszentrum abgeleiteten Referenzpunkte (TODO Kapitel referenzieren) genutzt. Mit Hilfe dieser Referenzpunkte ist es möglich, eine zuverlässige Detektion aller Haltelinien aus der Menge der vorverarbeiteten Linien durchzuführen.
+Aufgrund dieses Umstands werden auch die Querhaltelinien auf Basis des Kreuzungszentrums berechnet. Es bleibt jedoch die Schwierigkeit, dass die aus dem Bilddaten berechnete Position des Kreuzungszentrums nicht exakt mit der tatsächlichen Position des Kreuzungszentrums übereinstimmt. Um diesem Problem entgegenzuwirken, werden die aus dem Kreuzungszentrum abgeleiteten Referenzpunkte (siehe auch @ghostcc) genutzt. Mit Hilfe dieser Referenzpunkte ist es möglich, eine zuverlässige Detektion aller Haltelinien aus der Menge der vorverarbeiteten Linien durchzuführen.
 
 Es wird auch die Hauptspurausrichtung genutzt, um die Referenzpunkte so zu berechnen, dass die Referenzen für die Ego- und Opplinie in Richtung des Spurwinkels liegen und die Referenzpunkte für die rechte und linke Haltelinie orthogonal dazu liegen (siehe dazu @ghostcc).
 
@@ -925,7 +920,7 @@ Die Parameter `eps` und `MinPts` können hierbei vom Anwender gewählt werden. `
 
 Innerhalb der Berechnung des Kreuzungszentrums soll der DBSCAN Algrithmus verwendet werden, um durch Clustering Linien zu bilden. Es stellt sich die Frage, ob anstatt des DBSCAN Algorithmus bereits verfügbare Linien genutzt werden können, die der `Line Segment Detector` berechnet. Der LSD weist dabei ein Problem auf, was durch den DBSCAN behoben werden kann, undzwar, dass Linien oft fragmentiert sind und dadurch keine eindeutige Kreuzung der Linien berechnet werden kann.
 
-Nachdem Cluster berechnet wurden, kann durch PCA (TODO: Referenz hinzufügen), eine Menge an Linien gewonnen werden, die danach miteinander gekreuzt werden. Der Mittelpunkt aller Kreuzungen ist dann die Kreuzungsmitte.
+Nachdem Cluster berechnet wurden, kann durch PCA (siehe @pca-label), eine Menge an Linien gewonnen werden, die danach miteinander gekreuzt werden. Der Mittelpunkt aller Kreuzungen ist dann die Kreuzungsmitte.
 
 Durch Testing in der Pipeline hat sich dieser Ansatz zwar als generell sinnvoll, aber nicht optimal herausgestellt. Da durch Fusionierung in der Vorverbeitung bereits aus sehr kleinen Segmenten repräsentative Linien berechnet wurden, werden die weiteren Rechenkosten des DBSCAN als nicht gerechtfertigt angesehen. Zudem wies dieser Ansatz bei Anfahrt aus Kurven, in weiterer Entfernung von der Kreuzung und bei Mangel an erkannten Linien starke Mängel auf und berechnete die Kreuzungsmitte teilweise außerhalb der Kreuzung, was zu vollständig falschen Klassifikationen führte. Um den Parametrierungsaufwand zu minimieren, wurden vorerst weitere Ansätze getestet.
 
@@ -962,7 +957,7 @@ Obwohl `Shi-Tomasi` zufriedenstellende Ergebnisse liefert, kommt es auch zu Bere
 
 Eine grundlegende Idee wäre es, zu prüfen, ob die Innenwinkelsumme der vier gefundenen Ecken $360 degree$ ist. Dieser Ansatz wird verworfen, da Eckpunkte in verschiedenen Anordnungen, die nicht unbedingt ein Viereck sein müssen, auch $360 degree$ ergeben. Stattdessen werden nun die einzelnen Winkel an den Ecken berechnet, die für ein Vierreck jeweils $90 degree$ ergeben müssen. Um eine Metrik zu gewinnen, die die Ähnlichkeit der Anordnung der Ecken zu einem Viereck darstellt, werden die jeweiligen Fehler an jeder Ecke zu $90 degree$ berechnet und dann der Durchschnitt über alle vier Ecken gebildet. Anhand dieser Metrik kann nun bestimmt werden, ob das Shi-Tomasi Zentrum genutzt wird oder nicht.
 
-Außerdem wird zusätztlich ein Gedächtnissystem eingebaut. Wird ein valides Shi-Tomasi Zentrum gefunden, wird dieses für fünf Frames gehalten. Es ändert dann in jedem Frame seine Position um einen festgelegten Pixelwert entlang der Hauptausrichtung der Linien (TODO: referenz zu dem hauptwinkel). Dieses Tracking erzeugt selbstverständlich keine Ergebnisse, die an die eines Kalman-Filters herankommen. Da die Anzahl der Frames, die das Zentrum gespeichert wird, aber relativ klein mit Blick auf die Framerate der Kamera ist, ist diese Näherung zufriedenstellend und liefert Ergebnisse, die gut für die Detektion von Linien genutzt werden können.
+Außerdem wird zusätztlich ein Gedächtnissystem eingebaut. Wird ein valides Shi-Tomasi Zentrum gefunden, wird dieses für fünf Frames gehalten. Es ändert dann in jedem Frame seine Position um einen festgelegten Pixelwert entlang der Hauptausrichtung der Linien. Dieses Tracking erzeugt selbstverständlich keine Ergebnisse, die an die eines Kalman-Filters herankommen. Da die Anzahl der Frames, die das Zentrum gespeichert wird, aber relativ klein mit Blick auf die Framerate der Kamera ist, ist diese Näherung zufriedenstellend und liefert Ergebnisse, die gut für die Detektion von Linien genutzt werden können.
 
 Kann kein Shi-Tomasi Zentrum berechnet werden, wird weiterhin das Zentrum der ROI als Redundanz angenommen.
 === Pipeline zur Kreuzungszentrumserkennung
@@ -1108,7 +1103,7 @@ binary = (gray >= 60).astype(np.uint8) & adaptive_binary
   )
 ) <wrcalc-binary>
 
-Nun wird das Bild in ein 1D Spaltenprofil umgewandelt, indem die Anzahl der weißen Pixel in jeder Spalte summiert werden (TODO: auch hier ein Bild einfügen). Mit Hilfe dieses Wertes und der Gesamtgröße des Ausschnitts wird nun der Weißanteil der Linie am Ausschnitt berechnet. Dieser Wert kann zur Validierung von Linien verwendet werden. Detektierte Linien, die tatsächlich aber nicht auf realen Linien liegen, weisen dabei einen sehr geringen Weißanteil im Ausschnitt auf und können somit ausgefiltert werden. 
+Nun wird das Bild in ein 1D Spaltenprofil umgewandelt, indem die Anzahl der weißen Pixel in jeder Spalte summiert werden (siehe @gaps). Mit Hilfe dieses Wertes und der Gesamtgröße des Ausschnitts wird nun der Weißanteil der Linie am Ausschnitt berechnet. Dieser Wert kann zur Validierung von Linien verwendet werden. Detektierte Linien, die tatsächlich aber nicht auf realen Linien liegen, weisen dabei einen sehr geringen Weißanteil im Ausschnitt auf und können somit ausgefiltert werden. 
 === Gap-Detektion
 Um zu bestimmen, ob es sich bei Linien um gestrichelte oder durchgezogene Haltelinien handelt, werden die Lücken zwischen den weißen Teilen einer Linie berechnet. Im Schritt zuvor wurde ein Spaltenprofil des Ausschnitts angelegt, welches die Anzahl weißer Pixel pro Spalte aufsummiert anzeigt. Dieses Profil wird nun genutzt. Dabei werden die Spalten nach folgendem Algorithmus berechnet @gap-algo.
 #figure(
@@ -1189,7 +1184,7 @@ Nachdem nun die algorithmische Basis der Klassifizierung der Linienart näher el
 
 == Heading der Straße 
 
-Ein bisher beständiges Problem der Kreuzungserkennung ist die falsche oder ausgelassene Detektion von Haltelinien bei Anfahrt aus einer Kurve. Zusätzlich hängt die Ausrichtung der abgeleiteten Kreuzungsmitten (TODO ref) auch von der Orientierung der Straße ab und ändert sich deshalb bei Anfahrt aus Kurven.
+Ein bisher beständiges Problem der Kreuzungserkennung ist die falsche oder ausgelassene Detektion von Haltelinien bei Anfahrt aus einer Kurve. Zusätzlich hängt die Ausrichtung der abgeleiteten Kreuzungsmitten (siehe @ghostcc) auch von der Orientierung der Straße ab und ändert sich deshalb bei Anfahrt aus Kurven.
 
 === Gaussian Mixture Model mit Expectation Maximization
 Eine verwandte Methode zur Bestimmung der Straßenorientierung ist die Lenkwinkelberechnung für autonome Fahrzeuge. Ein vielversprechender Ansatz, der in der Literatur beschrieben wird, nutzt Computer Vision mit geringen Rechenkosten. Die Methode basiert auf drei Schritten: Zunächst wird die befahrbare Straßenregion mittels Gaussian Mixture Model (GMM) mit Expectation Maximization (EM) extrahiert, um robust mit Schatten und verschiedenen Lichtverhältnissen umzugehen. Daraufhin werden die Straßengrenzen durch Canny Edge Detection detektiert. Abschließend wird der Lenkwinkel aus dem Schnittpunkt der extrahierten Grenzen berechnet – also dem Punkt, in dem sich die extrapolierten Straßenkanten treffen. Der Winkel zwischen diesem Schnittpunkt und der Fahrtmitte ergibt dann die erforderliche Fahrtrichtung. Zur Rauschunterdrückung werden Kalman-Filter eingesetzt, um abrupte Lenkwinkeländerungen durch Fahrbahnunebenheiten oder Umgebungsrauschen zu glätten @gnnem.
@@ -1339,6 +1334,7 @@ Das System berechnet zusätzlich ein Stabilitätsmaß basierend auf der Historie
 Der Aggregator gibt schließlich über die Methode `get_crossing_type()` die aktuelle Klassifikation der Kreuzung anhand eines Strings aus, der nach folgendem Schema aufgebaut ist: `eX-oX-lX-rX`. Die Präfixe stehen für die einzelnen Haltelinien (Ego, Opp, Left, Right) und das X kann folgende Werte annehmen: n-`None`, s-`solid`, d-`dotted`. Der Aggregator liefert somit die Gesamtklassifikation als Ergebnis der Pipeline, welches wie folgt aussehen könnte: `es-os-ln-rn`.
 
 == Bild zu Welt Transformation
+Die Koordinaten der Haltelinien im Ego-Koordinatensystem werden durch das durch die Platform bereitgestellte Modul `camera_preprocessing` in Weltkoordinaten umgewandelt und dann auf dem ROS2 Topic `crossing_detection/result` veröffentlicht.
 
 = Konzeption einer Sperrflächenerkennung
 
@@ -1346,15 +1342,14 @@ Im Laufe der Entwicklung wurde versucht, eine zusätzliche Sperrflächenerkennun
 
 Die Implementierung folgte einem ähnlichen Ansatz wie die bestehende Kreuzungserkennung, nutzte aber modifizierte Parameter. Die Pipeline begann mit der gleichen Linienerkennung aus der Bildvorverarbeitung. Statt jedoch nach horizontalen und vertikalen Linien zu filtern (wie in der Kreuzungserkennung), wurde bei der Sperrflächenerkennung nach Linien gefiltert, die einen Winkel im Bereich von 45° bis 135° aufweisen. Dies zielt darauf ab, die diagonalen oder schrägen Begrenzungslinien von Parkplätzen und Sperrflächen zu erfassen.
 
-Nach der Winkelfilterung wurden die erkannten Liniensegmente mittels DBSCAN (Density-Based Spatial Clustering of Applications with Noise) klassifiziert. Dieser Algorithmus gruppiert räumlich nah beieinander liegende Linien zu Clustern, wodurch zusammenhängende Flächengrenzen identifiziert werden können. Um die Geometrie dieser Cluster besser zu analysieren, wurde eine Hauptkomponentenanalyse (PCA) durchgeführt. Die PCA reduzierte die Dimensionalität der Liniensegmente und identifizierte die Hauptrichtung und Ausdehnung der erkannten Sperrflächen.
+Nach der Winkelfilterung wurden die erkannten Liniensegmente mittels DBSCAN (Density-Based Spatial Clustering of Applications with Noise) klassifiziert. Dieser Algorithmus gruppiert räumlich nah beieinander liegende Linien zu Clustern, wodurch zusammenhängende Flächengrenzen identifiziert werden können (siehe @dbscan-label). Um die Geometrie dieser Cluster besser zu analysieren, wurde eine Hauptkomponentenanalyse (PCA) durchgeführt. Die PCA reduzierte die Dimensionalität der Liniensegmente und identifizierte die Hauptrichtung und Ausdehnung der erkannten Sperrflächen (siehe @img:barred).
+
+#figure(
+  caption: "Klassifikation einer Sperrfläche (Autor)",
+  image("assets/barred/barred.png", width: 45%)
+) <img:barred>
 
 Trotz des konzeptionell vielversprechenden Ansatzes stellte sich in der praktischen Umsetzung heraus, dass die Robustheit dieser Sperrflächenerkennung begrenzt war. Die Parametrisierung des DBSCAN-Algorithmus erwies sich als kritisch und abhängig von den spezifischen Szenen-Charakteristiken. In komplexen Umgebungen mit vielen Linien wurde der Algorithmus anfällig für Fehlclusterungen. Zusätzlich zeigte sich, dass die Winkelfilterung auf 45°–135° zu restriktiv war und viele echte Sperrflächenkandidaten ausschloss. Aufgrund dieser Limitationen wurde die Sperrflächenerkennung in der endgültigen Pipeline deaktiviert und bleibt eine Aufgabe für zukünftige Verbesserungen.
-
-TODO: hier noch einfügen verweise zu den algos, die ich schon erklärt hatte in dem anderen teil
-
-TODO: BILD einfügen
-
-TODO: pipeline diagramm einfügen
 = Evaluation
 Zur Validierung des Systems werden Aufnahmesequenzen von Testfahrten des Fahrzeugs genutzt. Diese werden durch den Kreuzungsdetektor ausgewertet und danach gegen Referenzdaten ("Ground Truth") verglichen.
 
